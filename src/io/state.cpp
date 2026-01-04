@@ -7,6 +7,7 @@
 
 #define PERSIST_FILE "state.json"
 #define XSTS_TOKEN_KEY "xsts_token"
+#define XID_KEY "xid"
 
 static obs_data_t *g_state = NULL;
 
@@ -78,8 +79,23 @@ const char* get_xsts_token(void)
 	return obs_data_get_string(g_state, XSTS_TOKEN_KEY);
 }
 
-void set_xsts_token(const char* token)
+const char* get_xid(void)
 {
+	return obs_data_get_string(g_state, XID_KEY);
+}
+
+void clear_xid_xsts_token(void)
+{
+	obs_data_set_string(g_state, XID_KEY, "");
+	obs_data_set_string(g_state, XSTS_TOKEN_KEY, "");
+
+	/* Immediately save the state to disk */
+	save_state(g_state);
+}
+
+void set_xid_xsts_token(const char* xid, const char* token)
+{
+	obs_data_set_string(g_state, XID_KEY, xid);
 	obs_data_set_string(g_state, XSTS_TOKEN_KEY, token);
 
 	/* Immediately save the state to disk */

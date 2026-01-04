@@ -120,7 +120,7 @@ char *plugin_http_post_json(const char *url, const char *json_body, const char *
 	return chunk.ptr;
 }
 
-char *plugin_http_urlencode(const char *in)
+char *http_urlencode(const char *in)
 {
 	if (!in)
 		return NULL;

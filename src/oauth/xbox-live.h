@@ -24,13 +24,9 @@ extern "C" {
  * Returns:
  *  - true on success, false otherwise.
  */
-bool xbox_auth_interactive_get_xsts(
-	const char *client_id,
-	const char *scope,
-	char **out_uhs,
-	char **out_xsts_token);
+bool xbox_auth_interactive_get_xsts(const char *client_id, const char *scope, char **out_uhs, char **out_xid,
+									char **out_xsts_token);
 
 #ifdef __cplusplus
 }
 #endif
-

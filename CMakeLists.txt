@@ -13,7 +13,9 @@ include(helpers)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
         src/io/state.cpp
-        src/io/state.h)
+        src/io/state.h
+        src/xbox/client.c
+        src/xbox/client.h)
 
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
@@ -54,6 +56,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
   src/oauth/callback-server.c
   src/oauth/util.c
   src/oauth/xbox-live.c
+  src/xbox/client.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

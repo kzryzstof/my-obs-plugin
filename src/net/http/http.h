@@ -20,7 +20,7 @@ char *plugin_http_post_json(
 	const char *extra_header,
 	long *out_http_code);
 
-char *plugin_http_urlencode(const char *in);
+char *http_urlencode(const char *in);
 
 /*
  * Minimal JSON string value getter used by auth flows.

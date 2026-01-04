@@ -23,4 +23,3 @@ void oauth_pkce_challenge_s256(const char *verifier, char *out, size_t out_size)
 #ifdef __cplusplus
 }
 #endif
-

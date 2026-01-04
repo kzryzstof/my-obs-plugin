@@ -6,9 +6,11 @@ extern "C" {
 
 void io_load(void);
 
+const char* get_xid(void);
 const char* get_xsts_token(void);
 
-void set_xsts_token(const char*);
+void clear_xid_xsts_token(void);
+void set_xid_xsts_token(const char*, const char*);
 
 #ifdef __cplusplus
 }
