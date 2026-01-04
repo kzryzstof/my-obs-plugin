@@ -20,7 +20,7 @@ const char *text_src_get_name(
 )
 {
 	UNUSED_PARAMETER(unused);
-	return "My plugin text source";
+	return "Achievements Tracker";
 }
 
 /* Gets the properties of the source */

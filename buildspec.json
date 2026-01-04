@@ -36,10 +36,10 @@
             "bundleId": "com.example.plugintemplate-for-obs"
         }
     },
-    "name": "plugintemplate-for-obs",
-    "displayName": "Plugin Template for OBS",
+    "name": "achievements-tracker",
+    "displayName": "Achievements Tracker",
     "version": "1.0.0",
     "author": "Octelys",
-    "website": "https://example.com",
+    "website": "https://github.com/Octelys/achievements-tracker-plugin",
     "email": "contact@octelys.com"
 }
