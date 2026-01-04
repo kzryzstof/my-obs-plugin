@@ -11,5 +11,4 @@
 3. Display the number of achievements unlocked
 
 - Switch between Gamer points / Achievements? 
- 
-Share feature (will require a server)
+- Share feature (will require a server)?

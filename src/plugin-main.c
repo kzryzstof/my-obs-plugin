@@ -20,7 +20,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <plugin-support.h>
 
 #include "plugin-text-source.h"
-#include "plugin-image-source.h"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
@@ -29,7 +28,6 @@ bool obs_module_load(void)
 {
 	obs_log(LOG_INFO, "[my-plugin] plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	register_my_plugin_text_source();
-	register_my_plugin_image_source();
 	return true;
 }
 

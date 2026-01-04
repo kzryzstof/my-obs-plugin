@@ -22,9 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 extern "C" {
 #endif
 
-/* Registers the custom PNG image source type with OBS. */
-void register_my_plugin_image_source(void);
-
 #ifdef __cplusplus
 }
 #endif

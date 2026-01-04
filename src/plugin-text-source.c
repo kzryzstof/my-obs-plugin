@@ -2,6 +2,7 @@
 #include <graphics/graphics.h>
 
 #include "plugin-text-source.h"
+#include "plugin-properties.h"
 
 struct text_src {
 	obs_source_t *source;
@@ -14,7 +15,7 @@ struct text_src {
 };
 
 /* Gets the name of the source */
-static const char *text_src_get_name(
+const char *text_src_get_name(
     void *unused
 )
 {
@@ -23,7 +24,7 @@ static const char *text_src_get_name(
 }
 
 /* Gets the properties of the source */
-static obs_properties_t *text_src_properties(
+obs_properties_t *text_src_properties(
     void *data
 )
 {
@@ -50,7 +51,7 @@ static void text_src_update_child(
 	obs_data_release(st);
 }
 
-static void *text_src_create(
+void *text_src_create(
     obs_data_t *settings,
     obs_source_t *source
 )
@@ -75,7 +76,7 @@ static void *text_src_create(
 	return s;
 }
 
-static void text_src_destroy(
+void text_src_destroy(
     void *data
 )
 {
@@ -91,7 +92,7 @@ static void text_src_destroy(
 	bfree(s);
 }
 
-static void text_src_update(
+void text_src_update(
     void *data,
     obs_data_t *settings
 )
@@ -105,7 +106,7 @@ static void text_src_update(
 	text_src_update_child(s);
 }
 
-static uint32_t text_src_get_width(
+uint32_t text_src_get_width(
     void *data
 )
 {
@@ -113,7 +114,7 @@ static uint32_t text_src_get_width(
 	return s->width;
 }
 
-static uint32_t text_src_get_height(
+uint32_t text_src_get_height(
     void *data
 )
 {
@@ -121,7 +122,7 @@ static uint32_t text_src_get_height(
 	return s->height;
 }
 
-static void text_src_video_render(
+void text_src_video_render(
     void *data,
     gs_effect_t *effect
 )
@@ -135,23 +136,7 @@ static void text_src_video_render(
 	obs_source_video_render(s->child_text);
 }
 
-static struct obs_source_info text_src_info = {
-	.id = "template_text_source",
-	.type = OBS_SOURCE_TYPE_INPUT,
-	.output_flags = OBS_SOURCE_VIDEO,
-	.get_name = text_src_get_name,
-	.create = text_src_create,
-	.destroy = text_src_destroy,
-	.update = text_src_update,
-	.get_properties = text_src_properties,
-	.get_width = text_src_get_width,
-	.get_height = text_src_get_height,
-	.video_tick = NULL,
-	.video_render = text_src_video_render,
-};
-
 void register_my_plugin_text_source(void)
 {
-	obs_register_source(&text_src_info);
+	obs_register_source(get_plugin_properties());
 }
-
