@@ -72,7 +72,7 @@ jobs:
           fi
 
   macos-build:
-    name: Build for macOS 🍏
+    name: Build for macOS 
     runs-on: macos-15
     needs: check-event
     defaults:

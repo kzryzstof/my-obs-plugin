@@ -3,10 +3,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#if defined(_WIN32)
+#include <process.h> /* _getpid */
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
+#elif defined(_WIN32)
+#include <bcrypt.h>
+#pragma comment(lib, "bcrypt.lib")
 #endif
 
 static void base64url_encode_bytes(const uint8_t *bytes, size_t bytes_len, char *out, size_t out_size)
@@ -54,7 +63,11 @@ void oauth_random_state(char *out, size_t out_size)
 	if (!out || out_size == 0)
 		return;
 
+#if defined(_WIN32)
+	srand((unsigned)time(NULL) ^ (unsigned)_getpid());
+#else
 	srand((unsigned)time(NULL) ^ (unsigned)getpid());
+#endif
 	/* Aim for 32 chars like before, but respect caller buffer size. */
 	size_t n = 32;
 	if (n + 1 > out_size)
@@ -91,8 +104,23 @@ void oauth_pkce_challenge_s256(const char *verifier, char *out, size_t out_size)
 	uint8_t digest[CC_SHA256_DIGEST_LENGTH];
 	CC_SHA256((const unsigned char *)verifier, (CC_LONG)strlen(verifier), digest);
 	base64url_encode_bytes(digest, CC_SHA256_DIGEST_LENGTH, out, out_size);
+#elif defined(_WIN32)
+	BCRYPT_ALG_HANDLE alg = NULL;
+	NTSTATUS st = BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
+	if (st != 0) {
+		out[0] = '\0';
+		return;
+	}
+	unsigned char digest[32];
+	st = BCryptHash(alg, NULL, 0, (PUCHAR)verifier, (ULONG)strlen(verifier), digest, (ULONG)sizeof(digest));
+	(void)BCryptCloseAlgorithmProvider(alg, 0);
+	if (st != 0) {
+		out[0] = '\0';
+		return;
+	}
+	base64url_encode_bytes((const uint8_t *)digest, sizeof(digest), out, out_size);
 #else
-	/* Placeholder for non-Apple builds (current plugin is macOS-focused). */
+	/* If we ever support other platforms, add SHA256 here. */
 	out[0] = '\0';
 #endif
 }

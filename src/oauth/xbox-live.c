@@ -8,14 +8,26 @@
 #include "oauth/callback-server.h"
 #include "oauth/util.h"
 
-#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+static void sleep_ms(unsigned int ms)
+{
+	Sleep(ms);
+}
+#else
 #include <unistd.h>
+static void sleep_ms(unsigned int ms)
+{
+	usleep(ms * 1000);
+}
+#endif
 
 /* OAUTH_* limits live in oauth/callback-server.h */
 
@@ -67,7 +79,7 @@ static bool oauth_open_and_wait_for_code(struct oauth_loopback_ctx *ctx, const c
 	while (time(NULL) - start_time < 30) {
 		if (ctx->got_code)
 			return true;
-		usleep(100000); // 100 ms
+		sleep_ms(100); // 100 ms
 	}
 
 	obs_log(LOG_WARNING, "OAuth sign-in timed out");

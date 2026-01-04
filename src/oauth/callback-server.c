@@ -3,6 +3,34 @@
 #include <obs-module.h>
 #include <diagnostics/log.h>
 
+#if defined(_WIN32)
+/* Windows build: loopback server not implemented yet (POSIX sockets + pthread).
+ * We provide stubs so the plugin compiles; interactive auth will fail gracefully.
+ */
+bool oauth_loopback_start(struct oauth_loopback_ctx *ctx, uint16_t fixed_port)
+{
+	UNUSED_PARAMETER(fixed_port);
+	if (!ctx)
+		return false;
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->server_fd = -1;
+	ctx->port = 0;
+	ctx->got_code = false;
+	obs_log(LOG_WARNING, "OAuth loopback server is not supported on Windows yet");
+	return false;
+}
+
+void oauth_loopback_stop(struct oauth_loopback_ctx *ctx)
+{
+	if (!ctx)
+		return;
+	ctx->server_fd = -1;
+	ctx->thread_started = false;
+	ctx->thread = NULL;
+}
+
+#else
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -176,3 +204,5 @@ void oauth_loopback_stop(struct oauth_loopback_ctx *ctx)
 		ctx->thread = NULL;
 	}
 }
+
+#endif
