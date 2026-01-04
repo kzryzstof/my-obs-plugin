@@ -1,13 +1,13 @@
-#include "plugin-properties.h"
+#include "configuration/properties.h"
 
 #include <graphics/graphics.h>
 
-#include "plugin-text-source.h"
+#include "sources/achievements-tracker-source.h"
 
 /*
  * Forward declarations for the source callbacks.
  *
- * They’re implemented in plugin-text-source.c, but we keep the obs_source_info
+ * They’re implemented in sources/achievements-tracker-source.c, but we keep the obs_source_info
  * structure itself isolated in this file.
  */
 const char *text_src_get_name(void *unused);

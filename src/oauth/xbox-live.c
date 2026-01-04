@@ -14,218 +14,32 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 
-#include "plugin-xbox-auth.h"
+#include "oauth/xbox-live.h"
 
 #include <obs-module.h>
-#include <plugin-support.h>
+#include <diagnostics/log.h>
 
-#include "plugin-browser.h"
-#include "plugin-http.h"
-#include "plugin-oauth-util.h"
+#include "net/browser/browser.h"
+#include "net/http/http.h"
+#include "oauth/callback-server.h"
+#include "oauth/util.h"
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
-#define OAUTH_CODE_MAX 4096
-#define OAUTH_STATE_MAX 128
-#define OAUTH_VERIFIER_MAX 128
-#define OAUTH_CHALLENGE_MAX 128
+/* OAUTH_* limits live in oauth/callback-server.h */
 
-struct oauth_loopback_ctx {
-	int server_fd;
-	int port;
-	pthread_t thread;
-	bool thread_started;
-
-	char state[OAUTH_STATE_MAX];
-	char code_verifier[OAUTH_VERIFIER_MAX];
-	char code_challenge[OAUTH_CHALLENGE_MAX];
-
-	char auth_code[OAUTH_CODE_MAX];
-	bool got_code;
-};
-
-/* Forward declarations (C99 forbids implicit function declarations). */
-static bool oauth_loopback_start(struct oauth_loopback_ctx *ctx);
-static void oauth_loopback_stop(struct oauth_loopback_ctx *ctx);
 static bool oauth_open_and_wait_for_code(
 	struct oauth_loopback_ctx *ctx,
 	const char *client_id,
 	const char *scope,
 	char redirect_uri[256]);
-
-static void http_send_response(int client_fd, const char *body)
-{
-	char header[512];
-	int body_len = (int)strlen(body);
-	int n = snprintf(header, sizeof(header),
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/html; charset=utf-8\r\n"
-		"Content-Length: %d\r\n"
-		"Connection: close\r\n\r\n",
-		body_len);
-	if (n > 0)
-		(void)send(client_fd, header, (size_t)n, 0);
-	(void)send(client_fd, body, (size_t)body_len, 0);
-}
-
-static bool parse_query_param(const char *query, const char *key, char *out, size_t out_size)
-{
-	if (!query || !key || !out || out_size == 0)
-		return false;
-	const size_t key_len = strlen(key);
-	const char *p = query;
-	while (p && *p) {
-		const char *eq = strchr(p, '=');
-		if (!eq)
-			break;
-		const char *amp = strchr(p, '&');
-		const char *key_end = eq;
-		if ((size_t)(key_end - p) == key_len && strncmp(p, key, key_len) == 0) {
-			const char *val_start = eq + 1;
-			const char *val_end = amp ? amp : (p + strlen(p));
-			size_t len = (size_t)(val_end - val_start);
-			if (len >= out_size)
-				len = out_size - 1;
-			memcpy(out, val_start, len);
-			out[len] = '\0';
-			return true;
-		}
-		p = amp ? (amp + 1) : NULL;
-	}
-	return false;
-}
-
-static void *oauth_loopback_thread(void *arg)
-{
-	struct oauth_loopback_ctx *ctx = arg;
-	if (!ctx)
-		return NULL;
-
-	struct sockaddr_in cli;
-	socklen_t cli_len = sizeof(cli);
-	int client = accept(ctx->server_fd, (struct sockaddr *)&cli, &cli_len);
-	if (client < 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: accept() failed");
-		return NULL;
-	}
-
-	char buf[8192];
-	ssize_t r = recv(client, buf, sizeof(buf) - 1, 0);
-	if (r <= 0) {
-		close(client);
-		return NULL;
-	}
-	buf[r] = '\0';
-
-	char method[8] = {0};
-	char pathq[4096] = {0};
-	if (sscanf(buf, "%7s %4095s", method, pathq) == 2) {
-		const char *q = strchr(pathq, '?');
-		if (q) {
-			const char *query = q + 1;
-			char state[OAUTH_STATE_MAX] = {0};
-			char code[OAUTH_CODE_MAX] = {0};
-			(void)parse_query_param(query, "state", state, sizeof(state));
-			if (parse_query_param(query, "code", code, sizeof(code))) {
-				if (state[0] && strncmp(state, ctx->state, sizeof(ctx->state)) == 0) {
-					snprintf(ctx->auth_code, sizeof(ctx->auth_code), "%s", code);
-					ctx->got_code = true;
-					obs_log(LOG_INFO, "OAuth loopback: captured authorization code (len=%zu)", strlen(ctx->auth_code));
-					http_send_response(client,
-						"<html><body><h3>Signed in</h3><p>You can close this window and return to OBS.</p></body></html>");
-				} else {
-					obs_log(LOG_WARNING, "OAuth loopback: state mismatch");
-					http_send_response(client,
-						"<html><body><h3>Sign-in failed</h3><p>Invalid state. You can close this window.</p></body></html>");
-				}
-			} else {
-				http_send_response(client,
-					"<html><body><h3>Sign-in failed</h3><p>No authorization code received.</p></body></html>");
-			}
-		} else {
-			http_send_response(client,
-				"<html><body><h3>Sign-in failed</h3><p>Missing query string.</p></body></html>");
-		}
-	}
-
-	close(client);
-	return NULL;
-}
-
-static bool oauth_loopback_start(struct oauth_loopback_ctx *ctx)
-{
-	memset(ctx, 0, sizeof(*ctx));
-
-	ctx->server_fd = (int)socket(AF_INET, SOCK_STREAM, 0);
-	if (ctx->server_fd < 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: socket() failed");
-		return false;
-	}
-
-	int opt = 1;
-	(void)setsockopt(ctx->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-	struct sockaddr_in addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-	/* Use a fixed port so the redirect URI is stable and can be registered exactly. */
-	const uint16_t kFixedPort = 53125;
-	addr.sin_port = htons(kFixedPort);
-
-	if (bind(ctx->server_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: bind() failed for fixed port %u", (unsigned)kFixedPort);
-		close(ctx->server_fd);
-		ctx->server_fd = -1;
-		return false;
-	}
-
-	if (listen(ctx->server_fd, 1) != 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: listen() failed");
-		close(ctx->server_fd);
-		ctx->server_fd = -1;
-		return false;
-	}
-
-	ctx->port = (int)kFixedPort;
-
-	oauth_random_state(ctx->state, sizeof(ctx->state));
-	oauth_pkce_verifier(ctx->code_verifier, sizeof(ctx->code_verifier));
-	oauth_pkce_challenge_s256(ctx->code_verifier, ctx->code_challenge, sizeof(ctx->code_challenge));
-
-	if (pthread_create(&ctx->thread, NULL, oauth_loopback_thread, ctx) != 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: pthread_create() failed");
-		close(ctx->server_fd);
-		ctx->server_fd = -1;
-		return false;
-	}
-	ctx->thread_started = true;
-	return true;
-}
-
-static void oauth_loopback_stop(struct oauth_loopback_ctx *ctx)
-{
-	if (!ctx)
-		return;
-	if (ctx->server_fd >= 0)
-		close(ctx->server_fd);
-	ctx->server_fd = -1;
-	if (ctx->thread_started) {
-		(void)pthread_join(ctx->thread, NULL);
-		ctx->thread_started = false;
-	}
-}
 
 static bool oauth_open_and_wait_for_code(
 	struct oauth_loopback_ctx *ctx,
@@ -488,8 +302,14 @@ bool xbox_auth_interactive_get_xsts(
 	/* libcurl init is handled inside plugin-http.c */
 
 	struct oauth_loopback_ctx ctx;
-	if (!oauth_loopback_start(&ctx))
+	/* Use a fixed port so the redirect URI is stable and can be registered exactly. */
+	const uint16_t kFixedPort = 53125;
+	if (!oauth_loopback_start(&ctx, kFixedPort))
 		return false;
+
+	oauth_random_state(ctx.state, sizeof(ctx.state));
+	oauth_pkce_verifier(ctx.code_verifier, sizeof(ctx.code_verifier));
+	oauth_pkce_challenge_s256(ctx.code_verifier, ctx.code_challenge, sizeof(ctx.code_challenge));
 
 	char redirect_uri[256];
 	if (!oauth_open_and_wait_for_code(&ctx, client_id, scope, redirect_uri)) {

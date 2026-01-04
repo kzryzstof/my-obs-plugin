@@ -1,7 +1,7 @@
-#include "plugin-http.h"
+#include "net/http/http.h"
 
 #include <obs-module.h>
-#include <plugin-support.h>
+#include <diagnostics/log.h>
 
 #include <curl/curl.h>
 #include <string.h>
@@ -164,4 +164,3 @@ char *plugin_json_get_string_value(const char *json, const char *key)
 	out[len] = '\0';
 	return out;
 }
-

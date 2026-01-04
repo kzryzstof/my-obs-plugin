@@ -38,14 +38,20 @@ if(ENABLE_QT)
   )
 endif()
 
+# Logging helpers (obs_log wrapper + plugin name/version)
+if(TARGET diagnostics-log)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE diagnostics-log)
+endif()
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-  src/plugin-main.c
-  src/plugin-text-source.c
-  src/plugin-properties.c
-  src/plugin-browser.c
-  src/plugin-http.c
-  src/plugin-oauth-util.c
-  src/plugin-xbox-auth.c
+  src/main.c
+  src/sources/achievements-tracker-source.c
+  src/configuration/properties.c
+  src/net/browser/browser.c
+  src/net/http/http.c
+  src/oauth/callback-server.c
+  src/oauth/util.c
+  src/oauth/xbox-live.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

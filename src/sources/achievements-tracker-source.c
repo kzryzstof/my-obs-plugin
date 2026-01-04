@@ -1,11 +1,11 @@
 #include <obs-module.h>
 #include <graphics/graphics.h>
-#include <plugin-support.h>
+#include <diagnostics/log.h>
 
-#include "plugin-text-source.h"
-#include "plugin-properties.h"
-#include "plugin-browser.h"
-#include "plugin-xbox-auth.h"
+#include "sources/achievements-tracker-source.h"
+#include "configuration/properties.h"
+#include "net/browser/browser.h"
+#include "oauth/xbox-live.h"
 
 struct text_src {
 	obs_source_t *source;

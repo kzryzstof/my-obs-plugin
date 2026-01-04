@@ -1,7 +1,7 @@
-#include "plugin-browser.h"
+#include "net/browser/browser.h"
 
 #include <obs-module.h>
-#include <plugin-support.h>
+#include <diagnostics/log.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,4 +31,3 @@ bool plugin_open_url_in_browser(const char *url)
 	return false;
 #endif
 }
-
