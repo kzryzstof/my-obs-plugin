@@ -101,7 +101,7 @@ SpacesInParentheses: false
 SpacesInSquareBrackets: false
 StatementMacros:
   - 'Q_OBJECT'
-TabWidth: 8
+TabWidth: 4
 TypenameMacros:
   - 'DARRAY'
 UseTab: ForContinuationAndIndentation

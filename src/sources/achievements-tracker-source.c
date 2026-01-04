@@ -5,61 +5,16 @@
 #include "sources/achievements-tracker-source.h"
 #include "configuration/properties.h"
 #include "net/browser/browser.h"
-#include "oauth/xbox-live.h"
 
 struct text_src {
 	obs_source_t *source;
 	char *text;
 
-	obs_source_t *child_text; /* built-in text source */
+	obs_source_t *child_text;
 
 	uint32_t width;
 	uint32_t height;
 };
-
-/* Gets the name of the source */
-const char *text_src_get_name(
-    void *unused
-)
-{
-	UNUSED_PARAMETER(unused);
-	return "Achievements Tracker";
-}
-
-static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *property, void *data)
-{
-	UNUSED_PARAMETER(props);
-	UNUSED_PARAMETER(property);
-	UNUSED_PARAMETER(data);
-
-	/* TODO: move to OBS settings UI */
-	const char *client_id = "c02dcb46-80c5-477a-8dbc-8e98df2c06c1";
-	const char *scope = "XboxLive.signin offline_access";
-
-	char *uhs = NULL;
-	char *xsts_token = NULL;
-	if (!xbox_auth_interactive_get_xsts(client_id, scope, &uhs, &xsts_token)) {
-		obs_log(LOG_WARNING, "Xbox sign-in failed");
-		return true;
-	}
-
-	obs_log(LOG_INFO, "Use for Xbox APIs: Authorization: XBL3.0 x=%s;%s", uhs, xsts_token);
-	bfree(uhs);
-	bfree(xsts_token);
-	return true;
-}
-
-/* Gets the properties of the source */
-obs_properties_t *get_properties(
-    void *data
-)
-{
-	UNUSED_PARAMETER(data);
-	obs_properties_t *p = obs_properties_create();
-	obs_properties_add_text(p, "text", "Text", OBS_TEXT_DEFAULT);
-	obs_properties_add_button(p, "sign-in-xbox", "Sign in with Xbox", &on_sign_in_xbox_clicked);
-	return p;
-}
 
 static void text_src_update_child(
     struct text_src *s
@@ -163,7 +118,7 @@ void text_src_video_render(
 	obs_source_video_render(s->child_text);
 }
 
-void register_my_plugin_text_source(void)
+void register_achievements_tracker_source(void)
 {
 	obs_register_source(get_plugin_properties());
 }
