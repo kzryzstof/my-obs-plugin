@@ -15,16 +15,16 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
+
 #include "plugin-xbox-auth.h"
 
 #include <obs-module.h>
 #include <plugin-support.h>
 
 #include "plugin-browser.h"
+#include "plugin-http.h"
 
-#ifdef __APPLE__
 #include <arpa/inet.h>
-#include <curl/curl.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -37,9 +37,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <unistd.h>
 
 #include <CommonCrypto/CommonDigest.h>
-#endif
-
-#ifdef __APPLE__
 
 #define OAUTH_CODE_MAX 4096
 #define OAUTH_STATE_MAX 128
@@ -59,6 +56,15 @@ struct oauth_loopback_ctx {
 	char auth_code[OAUTH_CODE_MAX];
 	bool got_code;
 };
+
+/* Forward declarations (C99 forbids implicit function declarations). */
+static bool oauth_loopback_start(struct oauth_loopback_ctx *ctx);
+static void oauth_loopback_stop(struct oauth_loopback_ctx *ctx);
+static bool oauth_open_and_wait_for_code(
+	struct oauth_loopback_ctx *ctx,
+	const char *client_id,
+	const char *scope,
+	char redirect_uri[256]);
 
 static void oauth_random_state(char out[OAUTH_STATE_MAX])
 {
@@ -233,14 +239,18 @@ static bool oauth_loopback_start(struct oauth_loopback_ctx *ctx)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	addr.sin_port = htons(0);
+
+	/* Use a fixed port so the redirect URI is stable and can be registered exactly. */
+	const uint16_t kFixedPort = 53125;
+	addr.sin_port = htons(kFixedPort);
 
 	if (bind(ctx->server_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: bind() failed");
+		obs_log(LOG_WARNING, "OAuth loopback: bind() failed for fixed port %u", (unsigned)kFixedPort);
 		close(ctx->server_fd);
 		ctx->server_fd = -1;
 		return false;
 	}
+
 	if (listen(ctx->server_fd, 1) != 0) {
 		obs_log(LOG_WARNING, "OAuth loopback: listen() failed");
 		close(ctx->server_fd);
@@ -248,15 +258,7 @@ static bool oauth_loopback_start(struct oauth_loopback_ctx *ctx)
 		return false;
 	}
 
-	struct sockaddr_in bound;
-	socklen_t len = sizeof(bound);
-	if (getsockname(ctx->server_fd, (struct sockaddr *)&bound, &len) != 0) {
-		obs_log(LOG_WARNING, "OAuth loopback: getsockname() failed");
-		close(ctx->server_fd);
-		ctx->server_fd = -1;
-		return false;
-	}
-	ctx->port = ntohs(bound.sin_port);
+	ctx->port = (int)kFixedPort;
 
 	oauth_random_state(ctx->state);
 	oauth_pkce_verifier(ctx->code_verifier);
@@ -285,173 +287,18 @@ static void oauth_loopback_stop(struct oauth_loopback_ctx *ctx)
 	}
 }
 
-/* ---- libcurl helpers ---- */
-
-struct http_buf {
-	char *ptr;
-	size_t len;
-};
-
-static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *userp)
-{
-	size_t realsize = size * nmemb;
-	struct http_buf *mem = (struct http_buf *)userp;
-
-	char *p = brealloc(mem->ptr, mem->len + realsize + 1);
-	if (!p)
-		return 0;
-	mem->ptr = p;
-	memcpy(&(mem->ptr[mem->len]), contents, realsize);
-	mem->len += realsize;
-	mem->ptr[mem->len] = 0;
-	return realsize;
-}
-
-static char *http_post_form(const char *url, const char *postfields, long *out_http_code)
-{
-	if (out_http_code)
-		*out_http_code = 0;
-
-	CURL *curl = curl_easy_init();
-	if (!curl)
-		return NULL;
-
-	struct http_buf chunk = {0};
-	chunk.ptr = bzalloc(1);
-	chunk.len = 0;
-
-	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
-
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-	curl_easy_setopt(curl, CURLOPT_POST, 1L);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postfields);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-
-	CURLcode res = curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		obs_log(LOG_WARNING, "curl POST form failed: %s", curl_easy_strerror(res));
-		curl_slist_free_all(headers);
-		curl_easy_cleanup(curl);
-		bfree(chunk.ptr);
-		return NULL;
-	}
-
-	long http_code = 0;
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-	if (out_http_code)
-		*out_http_code = http_code;
-
-	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
-	return chunk.ptr;
-}
-
-static char *http_post_json(const char *url, const char *json_body, const char *extra_header, long *out_http_code)
-{
-	if (out_http_code)
-		*out_http_code = 0;
-
-	CURL *curl = curl_easy_init();
-	if (!curl)
-		return NULL;
-
-	struct http_buf chunk = {0};
-	chunk.ptr = bzalloc(1);
-	chunk.len = 0;
-
-	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, "Content-Type: application/json");
-	if (extra_header && *extra_header)
-		headers = curl_slist_append(headers, extra_header);
-
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-	curl_easy_setopt(curl, CURLOPT_POST, 1L);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_body);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-
-	CURLcode res = curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		obs_log(LOG_WARNING, "curl POST json failed: %s", curl_easy_strerror(res));
-		curl_slist_free_all(headers);
-		curl_easy_cleanup(curl);
-		bfree(chunk.ptr);
-		return NULL;
-	}
-
-	long http_code = 0;
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-	if (out_http_code)
-		*out_http_code = http_code;
-
-	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
-	return chunk.ptr;
-}
-
-static char *curl_urlencode(const char *in)
-{
-	if (!in)
-		return NULL;
-	CURL *curl = curl_easy_init();
-	if (!curl)
-		return NULL;
-	char *tmp = curl_easy_escape(curl, in, 0);
-	char *out = tmp ? bstrdup(tmp) : NULL;
-	if (tmp)
-		curl_free(tmp);
-	curl_easy_cleanup(curl);
-	return out;
-}
-
-static char *json_get_string_value(const char *json, const char *key)
-{
-	if (!json || !key)
-		return NULL;
-	char needle[256];
-	snprintf(needle, sizeof(needle), "\"%s\"", key);
-	const char *p = strstr(json, needle);
-	if (!p)
-		return NULL;
-	p = strchr(p + strlen(needle), ':');
-	if (!p)
-		return NULL;
-	p++;
-	while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
-		p++;
-	if (*p != '"')
-		return NULL;
-	p++;
-	const char *start = p;
-	while (*p && *p != '"')
-		p++;
-	if (*p != '"')
-		return NULL;
-	size_t len = (size_t)(p - start);
-	char *out = bzalloc(len + 1);
-	memcpy(out, start, len);
-	out[len] = '\0';
-	return out;
-}
-
 static bool oauth_open_and_wait_for_code(
 	struct oauth_loopback_ctx *ctx,
 	const char *client_id,
 	const char *scope,
 	char redirect_uri[256])
 {
-	snprintf(redirect_uri, 256, "http://127.0.0.1:%d/callback", ctx->port);
+	snprintf(redirect_uri, 256, "http://localhost:%d/callback", ctx->port);
 
-	char *redirect_uri_enc = curl_urlencode(redirect_uri);
-	char *scope_enc = curl_urlencode(scope);
+	obs_log(LOG_INFO, "Starting Xbox sign-in in browser. Redirect URI: %s", redirect_uri);
+
+	char *redirect_uri_enc = plugin_http_urlencode(redirect_uri);
+	char *scope_enc = plugin_http_urlencode(scope);
 	if (!redirect_uri_enc || !scope_enc) {
 		bfree(redirect_uri_enc);
 		bfree(scope_enc);
@@ -475,13 +322,24 @@ static bool oauth_open_and_wait_for_code(
 	bfree(redirect_uri_enc);
 	bfree(scope_enc);
 
-	obs_log(LOG_INFO, "Starting Xbox sign-in in browser. Redirect URI: %s", redirect_uri);
-	(void)plugin_open_url_in_browser(auth_url);
+	obs_log(LOG_INFO, "OAuth authorization URL: %s", auth_url);
 
-	(void)pthread_join(ctx->thread, NULL);
-	ctx->thread_started = false;
+	/* Open the authorization URL in the default browser. */
+	if (!plugin_open_url_in_browser(auth_url)) {
+		obs_log(LOG_WARNING, "Failed to open browser for OAuth authorization");
+		return false;
+	}
 
-	return ctx->got_code;
+	/* Wait for the authorization code to be received via the loopback server. */
+	time_t start_time = time(NULL);
+	while (time(NULL) - start_time < 30) {
+		if (ctx->got_code)
+			return true;
+		usleep(100000); // 100 ms
+	}
+
+	obs_log(LOG_WARNING, "OAuth sign-in timed out");
+	return false;
 }
 
 static char *oauth_exchange_code_for_access_token(
@@ -490,9 +348,9 @@ static char *oauth_exchange_code_for_access_token(
 	const char *code,
 	const char *code_verifier)
 {
-	char *code_enc = curl_urlencode(code);
-	char *redir_enc = curl_urlencode(redirect_uri);
-	char *verifier_enc = curl_urlencode(code_verifier);
+	char *code_enc = plugin_http_urlencode(code);
+	char *redir_enc = plugin_http_urlencode(redirect_uri);
+	char *verifier_enc = plugin_http_urlencode(code_verifier);
 	if (!code_enc || !redir_enc || !verifier_enc) {
 		bfree(code_enc);
 		bfree(redir_enc);
@@ -501,6 +359,16 @@ static char *oauth_exchange_code_for_access_token(
 		return NULL;
 	}
 
+	/*
+	 * Public client token exchange (no client_secret).
+	 * PKCE is what protects this flow.
+	 *
+	 * IMPORTANT: Azure will return AADSTS70002 (client_secret required) if the
+	 * app registration is configured as a confidential client (or otherwise
+	 * requires a secret for the token endpoint). In that case, the fix is to
+	 * register the app as a Public client (mobile/desktop) and enable the
+	 * redirect URI we use.
+	 */
 	char postfields[8192];
 	snprintf(postfields, sizeof(postfields),
 		"client_id=%s&grant_type=authorization_code&code=%s&redirect_uri=%s&code_verifier=%s",
@@ -510,7 +378,15 @@ static char *oauth_exchange_code_for_access_token(
 	bfree(verifier_enc);
 
 	long http_code = 0;
-	char *token_json = http_post_form(
+	/*
+	 * IMPORTANT: The authorize and token endpoints must match the app audience.
+	 *
+	 * - If the app is "Accounts in any organizational directory" (AAD), /common
+	 *   works.
+	 * - If the app is "Personal Microsoft accounts only" (MSA), Azure requires
+	 *   /consumers and will return AADSTS9002331 if you use /common.
+	 */
+	char *token_json = plugin_http_post_form(
 		"https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
 		postfields,
 		&http_code);
@@ -520,11 +396,17 @@ static char *oauth_exchange_code_for_access_token(
 	}
 	if (http_code < 200 || http_code >= 300) {
 		obs_log(LOG_WARNING, "Token exchange HTTP %ld: %s", http_code, token_json);
+		if (strstr(token_json, "AADSTS70002"))
+			obs_log(LOG_WARNING,
+				"Token exchange indicates client_secret is required. Configure your Azure app as a Public client (no secret) and enable the loopback redirect URI.");
+		if (strstr(token_json, "AADSTS9002331"))
+			obs_log(LOG_WARNING,
+				"Token exchange endpoint mismatch: this app is configured for Microsoft Accounts only; use the /consumers endpoint for both authorize and token.");
 		bfree(token_json);
 		return NULL;
 	}
 
-	char *access_token = json_get_string_value(token_json, "access_token");
+	char *access_token = plugin_json_get_string_value(token_json, "access_token");
 	if (!access_token) {
 		obs_log(LOG_WARNING, "Could not parse access_token from token response");
 		obs_log(LOG_DEBUG, "Token response: %s", token_json);
@@ -554,7 +436,7 @@ static bool xbl_authenticate(
 		ms_access_token);
 
 	long http_code = 0;
-	char *xbl_json = http_post_json(
+	char *xbl_json = plugin_http_post_json(
 		"https://user.auth.xboxlive.com/user/authenticate",
 		body,
 		NULL,
@@ -569,11 +451,11 @@ static bool xbl_authenticate(
 		return false;
 	}
 
-	char *xbl_token = json_get_string_value(xbl_json, "Token");
+	char *xbl_token = plugin_json_get_string_value(xbl_json, "Token");
 	char *uhs = NULL;
 	const char *uhs_pos = strstr(xbl_json, "\"uhs\"");
 	if (uhs_pos)
-		uhs = json_get_string_value(uhs_pos, "uhs");
+		uhs = plugin_json_get_string_value(uhs_pos, "uhs");
 
 	if (!xbl_token || !uhs) {
 		obs_log(LOG_WARNING, "Could not parse XBL token / uhs");
@@ -604,13 +486,13 @@ static char *xsts_authorize(const char *xbl_token)
 	snprintf(body, sizeof(body),
 		"{"
 		"\"Properties\":{\"SandboxId\":\"RETAIL\",\"UserTokens\":[\"%s\"]},"
-		"\"RelyingParty\":\"rp://api.xboxlive.com/\","
+		"\"RelyingParty\":\"http://xboxlive.com\","
 		"\"TokenType\":\"JWT\""
 		"}",
 		xbl_token);
 
 	long http_code = 0;
-	char *xsts_json = http_post_json(
+	char *xsts_json = plugin_http_post_json(
 		"https://xsts.auth.xboxlive.com/xsts/authorize",
 		body,
 		NULL,
@@ -620,12 +502,22 @@ static char *xsts_authorize(const char *xbl_token)
 		return NULL;
 	}
 	if (http_code < 200 || http_code >= 300) {
-		obs_log(LOG_WARNING, "XSTS authorize HTTP %ld: %s", http_code, xsts_json);
+		/*
+		 * XSTS errors are usually JSON like:
+		 * {"XErr":2148916233,"Message":"...","Redirect":"..."}
+		 */
+		char *message = plugin_json_get_string_value(xsts_json, "Message");
+		xbl_token = xbl_token; /* silence unused in some builds */
+		obs_log(LOG_WARNING, "XSTS authorize HTTP %ld: %s", http_code, xsts_json[0] ? xsts_json : "<empty body>");
+		if (message) {
+			obs_log(LOG_WARNING, "XSTS error message: %s", message);
+			bfree(message);
+		}
 		bfree(xsts_json);
 		return NULL;
 	}
 
-	char *xsts_token = json_get_string_value(xsts_json, "Token");
+	char *xsts_token = plugin_json_get_string_value(xsts_json, "Token");
 	if (!xsts_token) {
 		obs_log(LOG_WARNING, "Could not parse XSTS token");
 		obs_log(LOG_DEBUG, "XSTS response: %s", xsts_json);
@@ -634,8 +526,6 @@ static char *xsts_authorize(const char *xbl_token)
 	bfree(xsts_json);
 	return xsts_token;
 }
-
-#endif /* __APPLE__ */
 
 bool xbox_auth_interactive_get_xsts(
 	const char *client_id,
@@ -648,12 +538,6 @@ bool xbox_auth_interactive_get_xsts(
 	if (out_xsts_token)
 		*out_xsts_token = NULL;
 
-#ifndef __APPLE__
-	UNUSED_PARAMETER(client_id);
-	UNUSED_PARAMETER(scope);
-	obs_log(LOG_WARNING, "Xbox auth not implemented for this OS yet.");
-	return false;
-#else
 	if (!client_id || !*client_id) {
 		obs_log(LOG_WARNING, "Xbox auth: missing client_id");
 		return false;
@@ -661,7 +545,7 @@ bool xbox_auth_interactive_get_xsts(
 	if (!scope || !*scope)
 		scope = "XboxLive.signin offline_access";
 
-	curl_global_init(CURL_GLOBAL_DEFAULT);
+	/* libcurl init is handled inside plugin-http.c */
 
 	struct oauth_loopback_ctx ctx;
 	if (!oauth_loopback_start(&ctx))
@@ -712,6 +596,5 @@ bool xbox_auth_interactive_get_xsts(
 
 	oauth_loopback_stop(&ctx);
 	return true;
-#endif
 }
 

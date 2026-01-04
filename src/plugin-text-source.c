@@ -33,7 +33,7 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
 	UNUSED_PARAMETER(data);
 
 	/* TODO: move to OBS settings UI */
-	const char *client_id = "YOUR_CLIENT_ID_HERE";
+	const char *client_id = "c02dcb46-80c5-477a-8dbc-8e98df2c06c1";
 	const char *scope = "XboxLive.signin offline_access";
 
 	char *uhs = NULL;
