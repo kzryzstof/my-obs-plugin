@@ -12,7 +12,7 @@ include(defaults)
 include(helpers)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
-        src/io/state.cpp
+        src/io/state.c
         src/io/state.h
         src/xbox/client.c
         src/xbox/client.h)
@@ -53,10 +53,12 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
   src/configuration/properties.c
   src/net/browser/browser.c
   src/net/http/http.c
+  src/net/json/json.c
   src/oauth/callback-server.c
   src/oauth/util.c
   src/oauth/xbox-live.c
   src/xbox/client.c
+  src/io/state.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

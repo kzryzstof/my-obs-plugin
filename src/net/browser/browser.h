@@ -14,7 +14,9 @@ extern "C" {
  * Note: "success" here means the OS command was invoked; it doesn't guarantee
  * the user completed authentication.
  */
-bool plugin_open_url_in_browser(const char *url);
+bool open_url(
+	const char *url
+);
 
 #ifdef __cplusplus
 }

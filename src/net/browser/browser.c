@@ -6,12 +6,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-bool plugin_open_url_in_browser(const char *url)
+bool open_url(
+	const char *url
+)
 {
 	if (!url || !*url)
 		return false;
 
 #ifdef __APPLE__
+
 	char cmd[2048];
 	int n = snprintf(cmd, sizeof(cmd), "open '%s'", url);
 	if (n <= 0 || (size_t)n >= sizeof(cmd)) {
@@ -20,14 +23,18 @@ bool plugin_open_url_in_browser(const char *url)
 	}
 
 	int rc = system(cmd);
+
 	if (rc != 0) {
 		obs_log(LOG_WARNING, "Failed to open browser (system rc=%d)", rc);
 		return false;
 	}
 
 	return true;
+
 #else
+
 	obs_log(LOG_WARNING, "Open-browser not implemented for this OS yet. Please open: %s", url);
 	return false;
+
 #endif
 }

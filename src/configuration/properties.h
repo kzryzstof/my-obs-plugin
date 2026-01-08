@@ -16,4 +16,3 @@ const struct obs_source_info *get_plugin_properties(void);
 #ifdef __cplusplus
 }
 #endif
-
