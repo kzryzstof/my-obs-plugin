@@ -1,12 +1,13 @@
 #include "configuration/properties.h"
 
 #include <graphics/graphics.h>
+#include <obs-module.h>
+#include <diagnostics/log.h>
 
 #include "sources/achievements-tracker-source.h"
 #include "io/state.h"
 #include "oauth/xbox-live.h"
 #include "crypto/crypto.h"
-#include "diagnostics/log.h"
 #include "xbox/client.h"
 
 /*
@@ -41,10 +42,6 @@ static bool on_sign_out_clicked(obs_properties_t *props, obs_property_t *propert
 static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *property, void *data) {
 	UNUSED_PARAMETER(props);
 	UNUSED_PARAMETER(property);
-
-	EVP_PKEY *pkey = crypto_generate_p256_keypair();
-	if (pkey)
-		EVP_PKEY_free(pkey);
 
 	char *xid = NULL;
 	char *uhs = NULL;

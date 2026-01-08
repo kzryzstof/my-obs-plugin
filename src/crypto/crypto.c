@@ -83,15 +83,17 @@ static int get_ec_public_point_uncompressed(EVP_PKEY *pkey, unsigned char *out, 
 	return 1;
 }
 
-bool crypto_print_public_jwk_es256(EVP_PKEY *pkey) {
-	int ok = 0;
+char* crypto_key_to_string(
+	EVP_PKEY *pkey
+) {
 	unsigned char point[1 + 32 + 32];
 	size_t point_len = 0;
 	char *x64 = NULL;
 	char *y64 = NULL;
+	char *returned_key_json = NULL;
 
 	if (!pkey)
-		return 0;
+		return NULL;
 
 	if (!get_ec_public_point_uncompressed(pkey, point, sizeof(point), &point_len))
 		goto done;
@@ -106,17 +108,21 @@ bool crypto_print_public_jwk_es256(EVP_PKEY *pkey) {
 	if (!x64 || !y64)
 		goto done;
 
-	obs_log(LOG_WARNING, "Key");
-	obs_log(LOG_WARNING,
-			"{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"%s\",\"y\":\"%s\",\"alg\":\"ES256\",\"use\":\"sig\"}\n", x64,
-			y64);
+	char key_json[4096];
+	snprintf(
+		key_json,
+		sizeof(key_json),
+		"{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"%s\",\"y\":\"%s\",\"alg\":\"ES256\",\"use\":\"sig\"}\n",
+		x64,
+		y64
+	);
 
-	ok = 1;
+	returned_key_json = key_json;
 
 done:
 	free(x64);
 	free(y64);
-	return ok;
+	return returned_key_json;
 }
 
 /* Generate an EC P-256 keypair. Returns NULL on failure. */
@@ -141,8 +147,6 @@ EVP_PKEY *crypto_generate_p256_keypair(void) {
 		goto fail;
 
 	EVP_PKEY_CTX_free(ctx);
-
-	crypto_print_public_jwk_es256(pkey);
 
 	return pkey;
 

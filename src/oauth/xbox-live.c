@@ -2,12 +2,14 @@
 
 #include <obs-module.h>
 #include <diagnostics/log.h>
+#include <openssl/evp.h>
 
 #include "net/browser/browser.h"
 #include "net/http/http.h"
 #include "net/json/json.h"
 #include "oauth/callback-server.h"
 #include "oauth/util.h"
+#include "crypto/crypto.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -23,7 +25,7 @@
 #define REGISTER_ENDPOINT "https://login.live.com/oauth20_remoteconnect.srf?otc="
 #define GRANT_TYPE "urn:ietf:params:oauth:grant-type:device_code"
 #define XBOX_LIVE_AUTHENTICATE "https://user.auth.xboxlive.com/user/authenticate"
-#define SISU_AUTHORIZE_AUTHENTICATE "https://sisu.xboxlive.com/authorize"
+#define SISU_AUTHENTICATE "https://sisu.xboxlive.com/authorize"
 
 #define CLIENT_ID "000000004c12ae6f"
 #define SCOPE "service::user.auth.xboxlive.com::MBI_SSL"
@@ -53,6 +55,7 @@ static void sleep_ms(unsigned int ms) {
 /* */
 struct device_flow_ctx {
 	/* Input parameters */
+	EVP_PKEY *device_key;
 	char *device_code;
 	long interval_in_seconds;
 	long sleep_time;
@@ -135,7 +138,9 @@ static void retrieve_xsts_token(
 /*	********************************************************************************************************************
 
 	*******************************************************************************************************************/
-/*
+static const char *kRandomUuid = "7f73fdc6-8a1d-4ea4-b09c-bab21cbe3f98";
+static const char *kRandomSerialNumber = "sn-1000-0";
+
 static void retrieve_device_token(
 	struct device_flow_ctx *ctx
 )
@@ -147,23 +152,25 @@ static void retrieve_device_token(
 		"{"
 		"\"Properties\": {"
 		"\"AuthMethod\":\"ProofOfPossession\","
-		"\"Id\":\"??\","
-		"\"DeviceType\":\"??\","
-		"\"SerialNumber\":\"??\","
-		"\"Version\":\"1.0.0\""
+		"\"Id\":\"%s\","
+		"\"DeviceType\":\"obs-plugin\","
+		"\"SerialNumber\":\"%s\","
+		"\"Version\":\"1.0.0\","
+		"\"ProofKey\":\"%s\""
 		"},"
 		"\"RelyingParty\":\"http://auth.xboxlive.com\"}"
 		"\"TokenType\":\"JWT\"}"
 		"}",
-		ctx->xbox_live_token,
-		CLIENT_ID,
-		ctx->device_token,
+		kRandomUuid,
+		kRandomSerialNumber,
+		crypto_key_to_string(ctx->device_key)
 	);
 
+	obs_log(LOG_WARNING, "Sending request for device token: %s", json_body);
 
 	long http_code = 0;
 	char *xsts_json = http_post_json(
-		SISU_AUTHORIZE,
+		SISU_AUTHENTICATE,
 		json_body,
 		NULL,
 		&http_code
@@ -171,7 +178,7 @@ static void retrieve_device_token(
 
 	if (http_code < 200 || http_code >= 300) {
 		obs_log(LOG_WARNING, "SISU authentication failed. Received status code: %sd", http_code);
-		bfree(xbl_json);
+		bfree(json_body);
 		return;
 	}
 
@@ -196,7 +203,7 @@ static void retrieve_device_token(
 	ctx->sisu_token[sizeof(ctx->sisu_token) - 1] = '\0';
 	bfree(sisu_token);
 }
-*/
+
 /*	********************************************************************************************************************
 	Continues the device registration flow by retrieve an xbox live token
 	*******************************************************************************************************************/
@@ -293,7 +300,7 @@ static void *check_access_token_loop(void *param) {
 	}
 
 	if (!ctx->got_access_token) {
-		retrieve_xbox_token(ctx);
+		retrieve_device_token(ctx);
 	}
 
 	return NULL;
@@ -398,11 +405,17 @@ static bool start_device_registration() {
 	ctx->interval_in_seconds = *interval;
 	ctx->expires_in_seconds = *expires_in;
 	ctx->got_access_token = false;
+	ctx->device_key = crypto_generate_p256_keypair();
 
 	return pthread_create(&ctx->thread, NULL, check_access_token_loop, ctx) == 0;
 }
 
+
 //	--
+
+
+
+
 
 static char *oauth_exchange_code_for_access_token(
 	const char *client_id,
