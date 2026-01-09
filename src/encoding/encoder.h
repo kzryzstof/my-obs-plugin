@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-char *base64_encode(
+char *encode_base64(
 	const uint8_t *data,
 	size_t len
 );

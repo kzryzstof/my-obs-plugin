@@ -11,6 +11,10 @@ include(compilerconfig)
 include(defaults)
 include(helpers)
 
+# The plugin target must exist before we can attach sources/libraries to it.
+# The macOS helpers set the bundle properties later via `set_target_properties_plugin()`.
+add_library(${CMAKE_PROJECT_NAME} MODULE)
+
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
@@ -74,10 +78,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
   src/net/json/json.c
   src/oauth/callback-server.c
   src/oauth/util.c
-  src/text/base64.c
   src/oauth/xbox-live.c
   src/xbox/client.c
   src/io/state.c
+  src/encoding/encoder.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

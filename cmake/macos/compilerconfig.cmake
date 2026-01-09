@@ -5,8 +5,14 @@ include_guard(GLOBAL)
 option(ENABLE_COMPILER_TRACE "Enable clang time-trace" OFF)
 mark_as_advanced(ENABLE_COMPILER_TRACE)
 
+# Xcode-driven builds (ZERO_CHECK) may rerun CMake without explicitly passing `-G Xcode`.
+# In that case CMake can still know this is an Xcode generator via the existing build tree.
 if(NOT XCODE)
-  message(FATAL_ERROR "Building OBS Studio on macOS requires Xcode generator.")
+  if(CMAKE_GENERATOR STREQUAL "Xcode")
+    set(XCODE TRUE)
+  else()
+    message(FATAL_ERROR "Building OBS Studio on macOS requires Xcode generator.")
+  endif()
 endif()
 
 include(ccache)

@@ -74,7 +74,7 @@ char *http_post_form(const char *url, const char *postfields, long *out_http_cod
 	return chunk.ptr;
 }
 
-char *http_post_json(const char *url, const char *json_body, const char *extra_header, long *out_http_code) {
+char *http_post_json(const char *url, const char *json_body, const char *extra_headers, long *out_http_code) {
 	if (out_http_code)
 		*out_http_code = 0;
 
@@ -93,8 +93,30 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 	/* Avoid 100-continue edge cases that can hide error bodies on some proxies */
 	headers = curl_slist_append(headers, "Expect:");
 
-	if (extra_header && *extra_header)
-		headers = curl_slist_append(headers, extra_header);
+	if (extra_headers && *extra_headers) {
+		/* extra_headers contains one header per line (CRLF or LF). */
+		char *dup = bstrdup(extra_headers);
+
+		for (char *line = dup; line && *line;) {
+			char *next = strpbrk(line, "\r\n");
+
+			if (next) {
+				*next = '\0';
+				/* Skip consecutive line breaks */
+				char *p = next + 1;
+				while (*p == '\r' || *p == '\n')
+					p++;
+				next = p;
+			} else {
+				next = NULL;
+			}
+
+			if (*line)
+				headers = curl_slist_append(headers, line);
+			line = next;
+		}
+		bfree(dup);
+	}
 
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);

@@ -10,7 +10,7 @@
 #include "oauth/callback-server.h"
 #include "oauth/util.h"
 #include "crypto/crypto.h"
-#include "text/base64.h"
+#include "encoding/encoder.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -26,6 +26,7 @@
 #define REGISTER_ENDPOINT "https://login.live.com/oauth20_remoteconnect.srf?otc="
 #define GRANT_TYPE "urn:ietf:params:oauth:grant-type:device_code"
 #define XBOX_LIVE_AUTHENTICATE "https://user.auth.xboxlive.com/user/authenticate"
+#define DEVICE_AUTHENTICATE "https://device.auth.xboxlive.com/device/authenticate"
 #define SISU_AUTHENTICATE "https://sisu.xboxlive.com/authorize"
 
 #define CLIENT_ID "000000004c12ae6f"
@@ -68,6 +69,7 @@ struct device_flow_ctx {
 	char access_token[4096];
 	bool got_access_token;
 
+	char device_token[4096];
 	char xbox_live_token[4096];
 	char sisu_token[4096];
 };
@@ -153,7 +155,7 @@ static void retrieve_device_token(
 		"{"
 		"	\"Properties\": {"
 		"		\"AuthMethod\":\"ProofOfPossession\","
-		"		\"Id\":\"%s\","
+		"		\"Id\":\"{%s}\","
 		"		\"DeviceType\":\"obs-plugin\","
 		"		\"SerialNumber\":\"%s\","
 		"		\"Version\":\"1.0.0\","
@@ -182,13 +184,10 @@ static void retrieve_device_token(
 		return;
 	}
 
-	/*
-	char *signature_b64 = base64_encode(
+	char *signature_b64 = encode_base64(
 		signature,
 		signature_len
 	);
-
-	bfree(signature);
 
 	if (!signature_b64) {
 		obs_log(LOG_WARNING, "Unable to base64-encode the request signature");
@@ -196,54 +195,62 @@ static void retrieve_device_token(
 		return;
 	}
 
-	obs_log(LOG_DEBUG, "Signature (base64): %s", signature_b64);
-	//bfree(signature_b64);
-	*/
+	obs_log(LOG_WARNING, "Signature (base64): %s", signature_b64);
+
+	char *extra_headers = NULL;
+	if (signature_b64) {
+		extra_headers = bmalloc(strlen("Signature: ") + strlen(signature_b64) + 1);
+		if (extra_headers)
+			snprintf(extra_headers, strlen("Signature: ") + strlen(signature_b64) + 1, "Signature: %s", signature_b64);
+	}
+
 	obs_log(LOG_WARNING, "Sending request for device token: %s", json_body);
 
 	long http_code = 0;
-	char *xsts_json = http_post_json(
-		SISU_AUTHENTICATE,
+	char *device_token_json = http_post_json(
+		DEVICE_AUTHENTICATE,
 		json_body,
-		NULL,
+		extra_headers,
 		&http_code
 	);
 
+	if (extra_headers)
+		bfree(extra_headers);
+
+	bfree(signature_b64);
+
 	if (http_code < 200 || http_code >= 300) {
-		obs_log(LOG_WARNING, "SISU authentication failed. Received status code: %sd", http_code);
+		obs_log(LOG_WARNING, "Device authentication failed. Received status code: %d", http_code);
+		//bfree(json_body);
+		//if (device_token_json) {
+		//	bfree(device_token_json);
+		//}
+		return;
+	}
+
+	if (!device_token_json) {
+		obs_log(LOG_WARNING, "Device authentication failed (no response)");
 		bfree(json_body);
-		if (xsts_json) {
-			bfree(xsts_json);
-		}
 		return;
 	}
 
-	if (!xsts_json) {
-		obs_log(LOG_WARNING, "SISU authentication failed (no response)");
-		bfree(json_body);
+	char *device_token = json_get_string_value(device_token_json, "Token");
+
+	if (!device_token) {
+		obs_log(LOG_WARNING, "Could not parse Device token");
+		obs_log(LOG_DEBUG, "XBL response: %s", device_token_json);
+		bfree(device_token_json);
+		bfree(device_token);
 		return;
 	}
 
-	char *sisu_token = json_get_string_value(xsts_json, "Token");
+	obs_log(LOG_INFO, "Device authentication succeeded!");
 
-	if (!sisu_token) {
-		obs_log(LOG_WARNING, "Could not parse XBL token");
-		obs_log(LOG_DEBUG, "XBL response: %s", xsts_json);
-		bfree(xsts_json);
-		bfree(sisu_token);
-		return;
-	}
-
-	obs_log(LOG_INFO, "SISU authentication succeeded");
-
-	strncpy(ctx->sisu_token, sisu_token, sizeof(ctx->sisu_token) - 1);
-	ctx->sisu_token[sizeof(ctx->sisu_token) - 1] = '\0';
-	bfree(sisu_token);
+	strncpy(ctx->device_token, device_token, sizeof(ctx->device_token) - 1);
+	ctx->device_token[sizeof(ctx->device_token) - 1] = '\0';
+	bfree(device_token);
 }
 
-/*	********************************************************************************************************************
-	Continues the device registration flow by retrieve an xbox live token
-	*******************************************************************************************************************/
 static void retrieve_xbox_token(struct device_flow_ctx *ctx) {
 	char json_body[8192];
 	snprintf(json_body, sizeof(json_body),
