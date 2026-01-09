@@ -150,16 +150,16 @@ static void retrieve_device_token(
 		json_body,
 		sizeof(json_body),
 		"{"
-		"\"Properties\": {"
-		"\"AuthMethod\":\"ProofOfPossession\","
-		"\"Id\":\"%s\","
-		"\"DeviceType\":\"obs-plugin\","
-		"\"SerialNumber\":\"%s\","
-		"\"Version\":\"1.0.0\","
-		"\"ProofKey\":\"%s\""
-		"},"
-		"\"RelyingParty\":\"http://auth.xboxlive.com\"}"
-		"\"TokenType\":\"JWT\"}"
+		"	\"Properties\": {"
+		"		\"AuthMethod\":\"ProofOfPossession\","
+		"		\"Id\":\"%s\","
+		"		\"DeviceType\":\"obs-plugin\","
+		"		\"SerialNumber\":\"%s\","
+		"		\"Version\":\"1.0.0\","
+		"		\"ProofKey\":%s"
+		"	},"
+		"	\"RelyingParty\":\"http://auth.xboxlive.com\","
+		"	\"TokenType\":\"JWT\""
 		"}",
 		kRandomUuid,
 		kRandomSerialNumber,
@@ -278,13 +278,13 @@ static void *check_access_token_loop(void *param) {
 			obs_log(LOG_INFO, "Device not validated yet. Received code %d, Waiting %d second before retrying...", code,
 					interval);
 		} else {
-			ctx->got_access_token = true;
 
 			char *access_token = json_get_string_value(json, "access_token");
 
 			if (access_token) {
 				strncpy(ctx->access_token, access_token, sizeof(ctx->access_token) - 1);
 				ctx->access_token[sizeof(ctx->access_token) - 1] = '\0';
+				ctx->got_access_token = true;
 				bfree(access_token);
 				obs_log(LOG_INFO, "Access token received");
 				bfree(json);
@@ -299,7 +299,7 @@ static void *check_access_token_loop(void *param) {
 		}
 	}
 
-	if (!ctx->got_access_token) {
+	if (ctx->got_access_token) {
 		retrieve_device_token(ctx);
 	}
 
