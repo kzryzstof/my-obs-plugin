@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.28...3.30)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 
+# Prefer universal OpenSSL when present (macOS)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/EnsureUniversalOpenSSL.cmake")
+
 project(${_name} VERSION ${_version})
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
@@ -29,81 +32,32 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
 # universal (arm64+x86_64) linking.
 #
 # obs-deps 2024+ no longer includes OpenSSL. We build a universal OpenSSL
-# in .deps/openssl-universal during the CI build. We prevent CMake from
-# searching in Homebrew paths to avoid arm64-only libraries.
+# in .deps/openssl-universal during the CI build.
 if(APPLE)
   # Ignore typical Homebrew prefixes to prevent finding arm64-only OpenSSL
   list(APPEND CMAKE_IGNORE_PREFIX_PATH "/opt/homebrew" "/usr/local")
-
-  # For debugging: show CMAKE_PREFIX_PATH
-  message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
-
-  set(_found_openssl_root "")
-
-  # First, check for our custom-built universal OpenSSL in .deps/openssl-universal
-  set(_openssl_universal_dir "${CMAKE_CURRENT_SOURCE_DIR}/.deps/openssl-universal")
-  if(EXISTS "${_openssl_universal_dir}/include/openssl/ssl.h")
-    message(STATUS "Found universal OpenSSL at: ${_openssl_universal_dir}")
-    set(OPENSSL_ROOT_DIR "${_openssl_universal_dir}")
-    set(_found_openssl_root "${_openssl_universal_dir}")
-  else()
-    # Try to find openssl/ssl.h in various locations within CMAKE_PREFIX_PATH
-    find_path(
-      _openssl_include_dir
-      openssl/ssl.h
-      PATHS ${CMAKE_PREFIX_PATH}
-      PATH_SUFFIXES include ssl/include openssl/include
-      NO_DEFAULT_PATH
-    )
-
-    if(_openssl_include_dir)
-      get_filename_component(_root "${_openssl_include_dir}" DIRECTORY)
-      set(_found_openssl_root "${_root}")
-      message(STATUS "Found OpenSSL root via find_path: ${_found_openssl_root}")
-      set(OPENSSL_ROOT_DIR "${_found_openssl_root}")
-    else()
-      message(STATUS "OpenSSL headers not found in obs-deps or .deps/openssl-universal.")
-
-      # Debug: list contents of obs-deps directories to help diagnose
-      foreach(_prefix ${CMAKE_PREFIX_PATH})
-        if(_prefix MATCHES "obs-deps" AND NOT _prefix MATCHES "qt")
-          message(STATUS "Checking obs-deps directory: ${_prefix}")
-          if(EXISTS "${_prefix}/include")
-            message(STATUS "  include/ exists")
-          endif()
-          if(EXISTS "${_prefix}/lib")
-            message(STATUS "  lib/ exists")
-          endif()
-          if(EXISTS "${_prefix}/include/openssl")
-            message(STATUS "  include/openssl/ exists - OpenSSL headers found!")
-            set(OPENSSL_ROOT_DIR "${_prefix}")
-            set(_found_openssl_root "${_prefix}")
-          endif()
-        endif()
-      endforeach()
-
-      if(NOT _found_openssl_root)
-        message(STATUS "OpenSSL not found. Will search system paths (excluding Homebrew).")
-      endif()
-    endif()
-  endif()
 endif()
 
-# On macOS, obs-deps doesn't provide OpenSSLConfig.cmake, so skip CONFIG mode
-# On other platforms, try CONFIG mode first
+# Prefer CONFIG mode on non-macOS.
 if(NOT APPLE)
   find_package(OpenSSL CONFIG QUIET)
 endif()
 
 if(NOT TARGET OpenSSL::Crypto)
-  # Use module mode (FindOpenSSL.cmake)
-  if(APPLE)
-    # On macOS, only search in CMAKE_PREFIX_PATH (not system paths or Homebrew)
-    # We rely on CMAKE_IGNORE_PREFIX_PATH to skip Homebrew.
-    # obs-deps provides OpenSSL libraries.
-    find_package(OpenSSL REQUIRED)
-  else()
-    find_package(OpenSSL REQUIRED)
+  find_package(OpenSSL REQUIRED)
+endif()
+
+# If OpenSSL resolves to Homebrew on macOS, fail early: Homebrew bottles are often single-arch.
+if(APPLE)
+  if(OPENSSL_CRYPTO_LIBRARY MATCHES "(/opt/homebrew|/usr/local)")
+    message(
+      FATAL_ERROR
+      "Found Homebrew's OpenSSL at ${OPENSSL_CRYPTO_LIBRARY} which is often single-arch.\n"
+      "This breaks universal (arm64+x86_64) builds.\n"
+      "Install/use a universal OpenSSL (CI builds one at .deps/openssl-universal).\n"
+      "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}\n"
+      "Note: BUILD_TESTING links OpenSSL too, so this must be fixed rather than ignored."
+    )
   endif()
 endif()
 
@@ -175,3 +129,48 @@ target_sources(
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+# ------------------------------
+# Unit tests (Unity)
+# ------------------------------
+include(CTest)
+
+if(BUILD_TESTING)
+  # Unity test framework (vendored via FetchContent)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
+
+  add_executable(test_encoder tests/test_encoder.c ${unity_SOURCE_DIR}/src/unity.c src/encoding/encoder.c)
+
+  target_include_directories(
+    test_encoder
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${unity_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/tests
+  )
+
+  # Unity uses UNITY_INCLUDE_CONFIG_H to include a project-specific config header.
+  target_compile_definitions(test_encoder PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_encoder PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_encoder PRIVATE OpenSSL::SSL)
+    endif()
+
+    # Ensure headers are available even if the imported targets don't propagate include dirs.
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_encoder PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_encoder PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
+
+  # OBS memory helpers (bzalloc/bfree)
+  # The unit under test uses bzalloc/bfree, so link libobs.
+  target_link_libraries(test_encoder PRIVATE OBS::libobs)
+
+  add_test(NAME test_encoder COMMAND test_encoder)
+endif()
