@@ -32,12 +32,11 @@
 
 ### Run the tests
 
-For local development on macOS, use the helper script that handles code signing:
+For local development on macOS, use the helper script that handles code signing from the root folder:
 
 ```bash
 cmake --preset macos-dev
-cmake --build build_macos_dev --target test_encoder --config RelWithDebInfo
-./scripts/run-tests.sh
+cmake --test-dir build_macos_dev -C RelWithDebInfo  --output-on-failure
 ```
 
 For CI builds (which use universal OpenSSL), use ctest directly:
