@@ -38,41 +38,33 @@ if(APPLE)
   # For debugging: show CMAKE_PREFIX_PATH
   message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
+  # Set OPENSSL_ROOT_DIR to the obs-deps prefix
+  foreach(_prefix ${CMAKE_PREFIX_PATH})
+    if(_prefix MATCHES "obs-deps" AND NOT _prefix MATCHES "qt")
+      set(OPENSSL_ROOT_DIR "${_prefix}")
+      message(STATUS "Setting OPENSSL_ROOT_DIR to obs-deps: ${_prefix}")
+      break()
+    endif()
+  endforeach()
+
   # Search for OpenSSL logic:
-  # 1. Try to find openssl/ssl.h recursively in CMAKE_PREFIX_PATH to handle non-standard layouts.
+  # 1. Try to find openssl/ssl.h in CMAKE_PREFIX_PATH/include to locate OpenSSL root.
   # 2. If found, set OPENSSL_ROOT_DIR accordingly.
   # 3. If not found, do NOT set OPENSSL_ROOT_DIR to a missing path, let find_package search.
 
   set(_found_openssl_root "")
-  if(CMAKE_PREFIX_PATH)
-    foreach(_prefix ${CMAKE_PREFIX_PATH})
-      message(STATUS "Searching for OpenSSL in prefix: ${_prefix}")
-      file(GLOB_RECURSE _ssl_headers "${_prefix}/openssl/ssl.h")
-      foreach(_header ${_ssl_headers})
-        # _header is like /path/to/prefix/.../include/openssl/ssl.h
-        # We need the root, e.g. /path/to/prefix/...
-        # So we go up 3 levels: ssl.h -> openssl -> include -> ROOT
-        get_filename_component(_inc_dir "${_header}" DIRECTORY) # .../openssl
-        get_filename_component(_inc_dir "${_inc_dir}" DIRECTORY) # .../include (maybe)
-
-        # Check if it ends with "include"
-        if(_inc_dir MATCHES "/include$")
-           get_filename_component(_root "${_inc_dir}" DIRECTORY)
-           set(_found_openssl_root "${_root}")
-           message(STATUS "Found OpenSSL root via header search: ${_found_openssl_root}")
-           break()
-        endif()
-      endforeach()
-      if(_found_openssl_root)
-        break()
-      endif()
-    endforeach()
+  find_path(_openssl_include_dir openssl/ssl.h PATHS ${CMAKE_PREFIX_PATH} PATH_SUFFIXES include NO_DEFAULT_PATH)
+  if(_openssl_include_dir)
+    get_filename_component(_root "${_openssl_include_dir}" DIRECTORY)
+    set(_found_openssl_root "${_root}")
+    message(STATUS "Found OpenSSL root via find_path: ${_found_openssl_root}")
+  else()
+    message(STATUS "OpenSSL headers not found in obs-deps. Relying on default search (skipping Homebrew).")
   endif()
 
   if(_found_openssl_root)
     set(OPENSSL_ROOT_DIR "${_found_openssl_root}")
   else()
-    message(STATUS "OpenSSL headers not found in obs-deps. Relying on default search (skipping Homebrew).")
     # Do NOT prevent find_package from searching by setting an invalid OPENSSL_ROOT_DIR
   endif()
 endif()
