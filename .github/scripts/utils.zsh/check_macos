@@ -8,4 +8,12 @@ if (( ! ${+commands[brew]} )) {
 
 brew bundle --file ${SCRIPT_HOME}/.Brewfile
 rehash
+
+# Remove Homebrew's OpenSSL to prevent architecture conflicts with universal builds
+# obs-deps provides a universal OpenSSL that will be used instead
+if [[ -d ${HOMEBREW_PREFIX}/Cellar/openssl@3 ]] {
+  log_info 'Removing Homebrew OpenSSL (universal build will use obs-deps OpenSSL)...'
+  brew uninstall --ignore-dependencies openssl@3 || true
+}
+
 log_group
