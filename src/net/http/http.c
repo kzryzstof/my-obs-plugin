@@ -25,6 +25,25 @@ static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *use
 	return realsize;
 }
 
+static int curl_debug_cb(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr)
+{
+	(void)handle;
+	(void)userptr;
+
+	/* data is not guaranteed NUL-terminated */
+	switch (type) {
+	case CURLINFO_TEXT:
+	case CURLINFO_HEADER_IN:
+	case CURLINFO_HEADER_OUT:
+		obs_log(LOG_WARNING, "curl: %.*s", (int)size, data);
+		break;
+	default:
+		/* CURLINFO_DATA_IN/OUT can be noisy; omit by default */
+		break;
+	}
+	return 0;
+}
+
 char *http_post_form(const char *url, const char *postfields, long *out_http_code) {
 	if (out_http_code)
 		*out_http_code = 0;
@@ -40,6 +59,10 @@ char *http_post_form(const char *url, const char *postfields, long *out_http_cod
 
 	struct curl_slist *headers = NULL;
 	headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_debug_cb);
+	curl_easy_setopt(curl, CURLOPT_DEBUGDATA, NULL);
 
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -118,6 +141,10 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 		bfree(dup);
 	}
 
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_debug_cb);
+	curl_easy_setopt(curl, CURLOPT_DEBUGDATA, NULL);
+
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -192,6 +219,10 @@ char *http_get(const char *url, const char *extra_headers, const char *postfield
 		}
 		bfree(dup);
 	}
+
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_debug_cb);
+	curl_easy_setopt(curl, CURLOPT_DEBUGDATA, NULL);
 
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
