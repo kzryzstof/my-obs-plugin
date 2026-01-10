@@ -111,6 +111,7 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 
 	struct curl_slist *headers = NULL;
 	headers = curl_slist_append(headers, "Content-Type: application/json");
+	headers = curl_slist_append(headers, "Content-Type: application/json");
 
 	/* Avoid 100-continue edge cases that can hide error bodies on some proxies */
 	headers = curl_slist_append(headers, "Expect:");

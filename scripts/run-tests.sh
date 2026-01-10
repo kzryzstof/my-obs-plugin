@@ -7,12 +7,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BUILD_DIR="$PROJECT_ROOT/build_macos_dev"
-TEST_BINARY="$BUILD_DIR/RelWithDebInfo/test_encoder"
+
+# Accept test name as argument, default to test_encoder
+TEST_NAME="${1:-test_encoder}"
+TEST_BINARY="$BUILD_DIR/RelWithDebInfo/$TEST_NAME"
 ENTITLEMENTS="$PROJECT_ROOT/test/test_entitlements.plist"
 
 if [[ ! -f "$TEST_BINARY" ]]; then
     echo "Error: Test binary not found at $TEST_BINARY"
-    echo "Run: cmake --build build_macos_dev --target test_encoder --config RelWithDebInfo"
+    echo "Run: cmake --build build_macos_dev --target $TEST_NAME --config RelWithDebInfo"
     exit 1
 fi
 

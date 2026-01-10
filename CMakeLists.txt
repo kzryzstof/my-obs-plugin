@@ -152,6 +152,9 @@ if(BUILD_TESTING)
   # Unity test framework (vendored via FetchContent)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
 
+  # ------------------------------
+  # test_encoder
+  # ------------------------------
   add_executable(
     test_encoder
     test/test_encoder.c
@@ -192,6 +195,47 @@ if(BUILD_TESTING)
     endif()
   endif()
 
+  # ------------------------------
+  # test_crypto
+  # ------------------------------
+  add_executable(
+    test_crypto
+    test/test_crypto.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/crypto/crypto.c
+    src/encoding/encoder.c
+    test/stubs/bmem_stub.c
+  )
+
+  target_include_directories(
+    test_crypto
+    PRIVATE
+      # Use stub headers instead of real OBS headers for unit tests
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_crypto PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_crypto PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_crypto PRIVATE OpenSSL::SSL)
+    endif()
+
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_crypto PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_crypto PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
+
   # Note: We use bmem_stub.c instead of linking OBS::libobs to avoid
   # heavy runtime dependencies (FFmpeg, etc.) for simple unit tests.
 
@@ -202,12 +246,15 @@ if(BUILD_TESTING)
     list(LENGTH CMAKE_OSX_ARCHITECTURES _test_arch_count)
     if(_test_arch_count LESS_EQUAL 1)
       # Single-arch dev build - use wrapper script that re-signs with entitlements
-      add_test(NAME test_encoder COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-tests.sh")
+      add_test(NAME test_encoder COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-tests.sh" test_encoder)
+      add_test(NAME test_crypto COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-tests.sh" test_crypto)
     else()
       # Universal build (CI) - direct execution works fine
       add_test(NAME test_encoder COMMAND test_encoder)
+      add_test(NAME test_crypto COMMAND test_crypto)
     endif()
   else()
     add_test(NAME test_encoder COMMAND test_encoder)
+    add_test(NAME test_crypto COMMAND test_crypto)
   endif()
 endif()

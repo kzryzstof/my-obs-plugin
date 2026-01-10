@@ -141,8 +141,9 @@ static void retrieve_xsts_token(
 /*	********************************************************************************************************************
 
 	*******************************************************************************************************************/
-static const char *kRandomUuid = "7f73fdc6-8a1d-4ea4-b09c-bab21cbe3f98";
-static const char *kRandomSerialNumber = "sn-1000-0";
+static const char *kDeviceType = "iOS";
+static const char *kRandomUuid = "90eaeebb-5212-30fb-baae-9e74a36012aa";
+static const char *kRandomSerialNumber = "90eaeebb-5212-30fb-baae-9e74a36012aa";
 
 static void retrieve_device_token(struct device_flow_ctx *ctx) {
 	char json_body[8192];
@@ -151,15 +152,15 @@ static void retrieve_device_token(struct device_flow_ctx *ctx) {
 			 "	\"Properties\": {"
 			 "		\"AuthMethod\":\"ProofOfPossession\","
 			 "		\"Id\":\"{%s}\","
-			 "		\"DeviceType\":\"obs-plugin\","
-			 "		\"SerialNumber\":\"%s\","
-			 "		\"Version\":\"1.0.0\","
+			 "		\"DeviceType\":\"%s\","
+			 "		\"SerialNumber\":\"{%s}\","
+			 "		\"Version\":\"0.0.0\","
 			 "		\"ProofKey\":%s"
 			 "	},"
 			 "	\"RelyingParty\":\"http://auth.xboxlive.com\","
 			 "	\"TokenType\":\"JWT\""
 			 "}",
-			 kRandomUuid, kRandomSerialNumber, crypto_key_to_string(ctx->device_key));
+			 kRandomUuid, kDeviceType, kRandomSerialNumber, crypto_key_to_string(ctx->device_key));
 
 	size_t signature_len = 0;
 	uint8_t *signature = crypto_sign_policy_header(ctx->device_key, SISU_AUTHENTICATE, "", json_body, &signature_len);
