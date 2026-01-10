@@ -29,57 +29,39 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
 # universal (arm64+x86_64) linking.
 #
 # obs-deps provides a universal OpenSSL under `.deps`, and buildspec bootstrap
-# will download it. We explicitly hint CMake to use that copy.
+# will download it and add it to CMAKE_PREFIX_PATH. We prevent CMake from
+# searching in Homebrew paths.
 if(APPLE)
-  # As an extra safeguard, ignore typical Homebrew prefixes FIRST
+  # Ignore typical Homebrew prefixes to prevent finding arm64-only OpenSSL
   list(APPEND CMAKE_IGNORE_PREFIX_PATH "/opt/homebrew" "/usr/local")
+endif()
 
-  set(_obs_deps_prefix "${CMAKE_CURRENT_SOURCE_DIR}/.deps")
+# Try config mode first (creates OpenSSL::Crypto target)
+find_package(OpenSSL CONFIG QUIET)
 
-  # Set paths for both CONFIG and MODULE mode
-  set(OPENSSL_ROOT_DIR "${_obs_deps_prefix}")
-  set(OPENSSL_USE_STATIC_LIBS FALSE)
-
-  if(EXISTS "${_obs_deps_prefix}/lib/cmake/OpenSSL")
-    set(OpenSSL_DIR "${_obs_deps_prefix}/lib/cmake/OpenSSL")
-  endif()
-
-  # For module mode: set explicit paths to the universal OpenSSL
-  if(EXISTS "${_obs_deps_prefix}/include")
-    set(OPENSSL_INCLUDE_DIR "${_obs_deps_prefix}/include")
-  endif()
-
-  # Find the crypto library (try both .dylib and .a)
-  if(EXISTS "${_obs_deps_prefix}/lib/libcrypto.dylib")
-    set(OPENSSL_CRYPTO_LIBRARY "${_obs_deps_prefix}/lib/libcrypto.dylib")
-  elseif(EXISTS "${_obs_deps_prefix}/lib/libcrypto.a")
-    set(OPENSSL_CRYPTO_LIBRARY "${_obs_deps_prefix}/lib/libcrypto.a")
-  endif()
-
-  if(EXISTS "${_obs_deps_prefix}/lib/libssl.dylib")
-    set(OPENSSL_SSL_LIBRARY "${_obs_deps_prefix}/lib/libssl.dylib")
-  elseif(EXISTS "${_obs_deps_prefix}/lib/libssl.a")
-    set(OPENSSL_SSL_LIBRARY "${_obs_deps_prefix}/lib/libssl.a")
+if(NOT TARGET OpenSSL::Crypto)
+  # Fallback to module mode
+  if(APPLE)
+    # On macOS, only search in CMAKE_PREFIX_PATH (set by buildspec to obs-deps)
+    # This prevents finding Homebrew's OpenSSL
+    find_package(OpenSSL REQUIRED NO_DEFAULT_PATH)
+  else()
+    find_package(OpenSSL REQUIRED)
   endif()
 endif()
 
-# Prefer config mode so OpenSSL::Crypto exists
-find_package(OpenSSL CONFIG QUIET)
-
 if(TARGET OpenSSL::Crypto)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenSSL::Crypto)
-  message(STATUS "Using OpenSSL from: ${OPENSSL_ROOT_DIR} (CONFIG mode)")
 else()
-  # Fallback to module mode (no imported targets)
-  find_package(OpenSSL REQUIRED)
-
-  # On macOS, verify we're not using Homebrew's OpenSSL
+  # Module mode found it - verify it's not from Homebrew on macOS
   if(APPLE AND OPENSSL_CRYPTO_LIBRARY MATCHES "(/opt/homebrew|/usr/local)")
-    message(FATAL_ERROR "Found Homebrew's OpenSSL at ${OPENSSL_CRYPTO_LIBRARY} which is not universal. "
-                        "Please ensure obs-deps is downloaded to .deps directory with universal OpenSSL.")
+    message(FATAL_ERROR
+      "Found Homebrew's OpenSSL at ${OPENSSL_CRYPTO_LIBRARY} which is arm64-only.\n"
+      "This breaks universal (arm64+x86_64) builds.\n"
+      "The buildspec system should have downloaded universal OpenSSL from obs-deps.\n"
+      "If you see this error, Homebrew's OpenSSL may need to be uninstalled.")
   endif()
 
-  message(STATUS "Using OpenSSL from: ${OPENSSL_CRYPTO_LIBRARY} (MODULE mode)")
   target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${OPENSSL_INCLUDE_DIR})
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
 endif()
