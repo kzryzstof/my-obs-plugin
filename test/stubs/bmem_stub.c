@@ -25,4 +25,3 @@ char *bstrdup(const char *str) {
 		memcpy(dup, str, len);
 	return dup;
 }
-
