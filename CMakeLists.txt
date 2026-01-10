@@ -48,7 +48,8 @@ if(APPLE)
     set(_found_openssl_root "${_openssl_universal_dir}")
   else()
     # Try to find openssl/ssl.h in various locations within CMAKE_PREFIX_PATH
-    find_path(_openssl_include_dir openssl/ssl.h
+    find_path(
+      _openssl_include_dir openssl/ssl.h
       PATHS ${CMAKE_PREFIX_PATH}
       PATH_SUFFIXES include ssl/include openssl/include
       NO_DEFAULT_PATH
@@ -116,12 +117,14 @@ else()
     message(STATUS "Found OpenSSL at: ${OPENSSL_CRYPTO_LIBRARY}")
 
     if(OPENSSL_CRYPTO_LIBRARY MATCHES "(/opt/homebrew|/usr/local)")
-      message(FATAL_ERROR
+      message(
+        FATAL_ERROR
         "Found Homebrew's OpenSSL at ${OPENSSL_CRYPTO_LIBRARY} which is arm64-only.\n"
         "This breaks universal (arm64+x86_64) builds.\n"
         "The buildspec system should have downloaded universal OpenSSL from obs-deps.\n"
         "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}\n"
-        "If you see this error, Homebrew's OpenSSL may need to be uninstalled.")
+        "If you see this error, Homebrew's OpenSSL may need to be uninstalled."
+      )
     endif()
   endif()
 
@@ -152,20 +155,22 @@ if(TARGET diagnostics-log)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE diagnostics-log)
 endif()
 
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-  src/main.c
-  src/sources/achievements-tracker-source.c
-  src/configuration/properties.c
-  src/crypto/crypto.c
-  src/net/browser/browser.c
-  src/net/http/http.c
-  src/net/json/json.c
-  src/oauth/callback-server.c
-  src/oauth/util.c
-  src/oauth/xbox-live.c
-  src/xbox/client.c
-  src/io/state.c
-  src/encoding/encoder.c
+target_sources(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE
+    src/main.c
+    src/sources/achievements-tracker-source.c
+    src/configuration/properties.c
+    src/crypto/crypto.c
+    src/net/browser/browser.c
+    src/net/http/http.c
+    src/net/json/json.c
+    src/oauth/callback-server.c
+    src/oauth/util.c
+    src/oauth/xbox-live.c
+    src/xbox/client.c
+    src/io/state.c
+    src/encoding/encoder.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
