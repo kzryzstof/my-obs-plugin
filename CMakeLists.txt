@@ -23,15 +23,13 @@ find_package(CURL REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
 
 # OpenSSL
-if(APPLE)
-  if(EXISTS /opt/homebrew/opt/openssl@3/lib/cmake/OpenSSL)
-    set(OPENSSL_ROOT_DIR /opt/homebrew/opt/openssl@3)
-    set(OpenSSL_DIR /opt/homebrew/opt/openssl@3/lib/cmake/OpenSSL)
-  elseif(EXISTS /usr/local/opt/openssl@3/lib/cmake/OpenSSL)
-    set(OPENSSL_ROOT_DIR /usr/local/opt/openssl@3)
-    set(OpenSSL_DIR /usr/local/opt/openssl@3/lib/cmake/OpenSSL)
-  endif()
-endif()
+#
+# IMPORTANT (macOS universal): do NOT prefer Homebrew's OpenSSL here.
+# Homebrew bottles are typically single-arch (arm64 on macos-*-arm64 runners),
+# which will break universal (arm64+x86_64) linking.
+#
+# obs-deps provides a universal OpenSSL and is already added to CMAKE_PREFIX_PATH
+# by the buildspec dependency bootstrap.
 
 # Prefer config mode so OpenSSL::Crypto exists
 find_package(OpenSSL CONFIG QUIET)
