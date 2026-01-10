@@ -22,12 +22,7 @@ char *crypto_key_to_string(EVP_PKEY *pkey);
  * Returns a newly allocated buffer (bzalloc). Caller must bfree().
  */
 uint8_t *crypto_sign_policy_header(
-	EVP_PKEY *private_key,
-	const char *url,
-	const char *authorization_token,
-	const char *payload,
-	size_t *out_len
-);
+	EVP_PKEY *private_key, const char *url, const char *authorization_token, const char *payload, size_t *out_len);
 
 #ifdef __cplusplus
 }

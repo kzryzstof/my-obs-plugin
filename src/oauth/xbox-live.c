@@ -144,39 +144,25 @@ static void retrieve_xsts_token(
 static const char *kRandomUuid = "7f73fdc6-8a1d-4ea4-b09c-bab21cbe3f98";
 static const char *kRandomSerialNumber = "sn-1000-0";
 
-static void retrieve_device_token(
-	struct device_flow_ctx *ctx
-)
-{
+static void retrieve_device_token(struct device_flow_ctx *ctx) {
 	char json_body[8192];
-	snprintf(
-		json_body,
-		sizeof(json_body),
-		"{"
-		"	\"Properties\": {"
-		"		\"AuthMethod\":\"ProofOfPossession\","
-		"		\"Id\":\"{%s}\","
-		"		\"DeviceType\":\"obs-plugin\","
-		"		\"SerialNumber\":\"%s\","
-		"		\"Version\":\"1.0.0\","
-		"		\"ProofKey\":%s"
-		"	},"
-		"	\"RelyingParty\":\"http://auth.xboxlive.com\","
-		"	\"TokenType\":\"JWT\""
-		"}",
-		kRandomUuid,
-		kRandomSerialNumber,
-		crypto_key_to_string(ctx->device_key)
-	);
+	snprintf(json_body, sizeof(json_body),
+			 "{"
+			 "	\"Properties\": {"
+			 "		\"AuthMethod\":\"ProofOfPossession\","
+			 "		\"Id\":\"{%s}\","
+			 "		\"DeviceType\":\"obs-plugin\","
+			 "		\"SerialNumber\":\"%s\","
+			 "		\"Version\":\"1.0.0\","
+			 "		\"ProofKey\":%s"
+			 "	},"
+			 "	\"RelyingParty\":\"http://auth.xboxlive.com\","
+			 "	\"TokenType\":\"JWT\""
+			 "}",
+			 kRandomUuid, kRandomSerialNumber, crypto_key_to_string(ctx->device_key));
 
 	size_t signature_len = 0;
-	uint8_t *signature = crypto_sign_policy_header(
-		ctx->device_key,
-		SISU_AUTHENTICATE,
-		"",
-		json_body,
-		&signature_len
-	);
+	uint8_t *signature = crypto_sign_policy_header(ctx->device_key, SISU_AUTHENTICATE, "", json_body, &signature_len);
 
 	if (!signature) {
 		obs_log(LOG_WARNING, "Unable to sign the request for a device token");
@@ -184,10 +170,7 @@ static void retrieve_device_token(
 		return;
 	}
 
-	char *signature_b64 = encode_base64(
-		signature,
-		signature_len
-	);
+	char *signature_b64 = encode_base64(signature, signature_len);
 
 	if (!signature_b64) {
 		obs_log(LOG_WARNING, "Unable to base64-encode the request signature");
@@ -207,12 +190,7 @@ static void retrieve_device_token(
 	obs_log(LOG_WARNING, "Sending request for device token: %s", json_body);
 
 	long http_code = 0;
-	char *device_token_json = http_post_json(
-		DEVICE_AUTHENTICATE,
-		json_body,
-		extra_headers,
-		&http_code
-	);
+	char *device_token_json = http_post_json(DEVICE_AUTHENTICATE, json_body, extra_headers, &http_code);
 
 	if (extra_headers)
 		bfree(extra_headers);
@@ -454,20 +432,12 @@ static bool start_device_registration() {
 	return pthread_create(&ctx->thread, NULL, check_access_token_loop, ctx) == 0;
 }
 
-
 //	--
 
-
-
-
-
-static char *oauth_exchange_code_for_access_token(
-	const char *client_id,
-	const char *redirect_uri,
-	const char *code,
-	const char *code_verifier
-)
-{
+static char *oauth_exchange_code_for_access_token(const char *client_id,
+												  const char *redirect_uri,
+												  const char *code,
+												  const char *code_verifier) {
 	char *code_enc = http_urlencode(code);
 	char *redir_enc = http_urlencode(redirect_uri);
 	char *verifier_enc = http_urlencode(code_verifier);

@@ -25,8 +25,7 @@ static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *use
 	return realsize;
 }
 
-static int curl_debug_cb(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr)
-{
+static int curl_debug_cb(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr) {
 	(void)handle;
 	(void)userptr;
 

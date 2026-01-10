@@ -178,11 +178,7 @@ static void write_u64_be(uint8_t *dst, uint64_t v) {
 	dst[7] = (uint8_t)(v & 0xff);
 }
 
-static bool parse_url_path_and_query(
-	const char *url,
-	const char **out_begin,
-	size_t *out_len
-) {
+static bool parse_url_path_and_query(const char *url, const char **out_begin, size_t *out_len) {
 	if (!out_begin || !out_len) {
 		return false;
 	}
@@ -213,12 +209,7 @@ static bool parse_url_path_and_query(
 	return true;
 }
 
-static bool ecdsa_sign_p1363_sha256(
-	EVP_PKEY *pkey,
-	const uint8_t *data,
-	size_t data_len,
-	uint8_t out_sig64[64]
-) {
+static bool ecdsa_sign_p1363_sha256(EVP_PKEY *pkey, const uint8_t *data, size_t data_len, uint8_t out_sig64[64]) {
 
 	bool ok = false;
 	EVP_MD_CTX *mdctx = NULL;
@@ -289,12 +280,7 @@ done:
 }
 
 uint8_t *crypto_sign_policy_header(
-	EVP_PKEY *private_key,
-	const char *url,
-	const char *authorization_token,
-	const char *payload,
-	size_t *out_len
-) {
+	EVP_PKEY *private_key, const char *url, const char *authorization_token, const char *payload, size_t *out_len) {
 
 	if (out_len)
 		*out_len = 0;
