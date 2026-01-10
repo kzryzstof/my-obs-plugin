@@ -4,3 +4,8 @@ package 'git'
 package 'jq'
 package 'ninja-build', bin: 'ninja'
 package 'pkg-config'
+
+# Build deps for plugin
+package 'libcurl4-openssl-dev'
+package 'libssl-dev'
+package 'ca-certificates'
