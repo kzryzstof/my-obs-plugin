@@ -36,18 +36,29 @@ if(APPLE)
   list(APPEND CMAKE_IGNORE_PREFIX_PATH "/opt/homebrew" "/usr/local")
 
   # For debugging: show CMAKE_PREFIX_PATH
-  message(DEBUG "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+  message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
+
+  # obs-deps doesn't provide OpenSSLConfig.cmake, so we need to help FindOpenSSL.cmake
+  # by setting OPENSSL_ROOT_DIR to the first prefix path (should be obs-deps)
+  if(CMAKE_PREFIX_PATH)
+    list(GET CMAKE_PREFIX_PATH 0 _first_prefix)
+    set(OPENSSL_ROOT_DIR "${_first_prefix}")
+    message(STATUS "Set OPENSSL_ROOT_DIR to: ${OPENSSL_ROOT_DIR}")
+  endif()
 endif()
 
-# Try config mode first (creates OpenSSL::Crypto target)
-find_package(OpenSSL CONFIG QUIET)
+# On macOS, obs-deps doesn't provide OpenSSLConfig.cmake, so skip CONFIG mode
+# On other platforms, try CONFIG mode first
+if(NOT APPLE)
+  find_package(OpenSSL CONFIG QUIET)
+endif()
 
 if(NOT TARGET OpenSSL::Crypto)
-  # Fallback to module mode
+  # Use module mode (FindOpenSSL.cmake)
   if(APPLE)
-    # On macOS, search in CMAKE_PREFIX_PATH but not system environment paths
-    # NO_SYSTEM_ENVIRONMENT_PATH prevents finding Homebrew via PKG_CONFIG or other env vars
-    # NO_CMAKE_SYSTEM_PATH prevents searching /usr/local etc.
+    # On macOS, only search in CMAKE_PREFIX_PATH (not system paths or Homebrew)
+    # NO_SYSTEM_ENVIRONMENT_PATH: Don't use PKG_CONFIG or other env vars
+    # NO_CMAKE_SYSTEM_PATH: Don't search /usr/local, /usr, etc.
     find_package(OpenSSL REQUIRED
       NO_SYSTEM_ENVIRONMENT_PATH
       NO_CMAKE_SYSTEM_PATH)
@@ -59,18 +70,19 @@ endif()
 if(TARGET OpenSSL::Crypto)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenSSL::Crypto)
   if(APPLE)
-    message(STATUS "Using OpenSSL (CONFIG mode)")
+    message(STATUS "Successfully linked OpenSSL::Crypto target")
   endif()
 else()
-  # Module mode found it - verify it's not from Homebrew on macOS
+  # Module mode found it but didn't create imported target - verify and link manually
   if(APPLE)
-    message(STATUS "Using OpenSSL from: ${OPENSSL_CRYPTO_LIBRARY} (MODULE mode)")
+    message(STATUS "Found OpenSSL at: ${OPENSSL_CRYPTO_LIBRARY}")
 
     if(OPENSSL_CRYPTO_LIBRARY MATCHES "(/opt/homebrew|/usr/local)")
       message(FATAL_ERROR
         "Found Homebrew's OpenSSL at ${OPENSSL_CRYPTO_LIBRARY} which is arm64-only.\n"
         "This breaks universal (arm64+x86_64) builds.\n"
         "The buildspec system should have downloaded universal OpenSSL from obs-deps.\n"
+        "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}\n"
         "If you see this error, Homebrew's OpenSSL may need to be uninstalled.")
     endif()
   endif()
