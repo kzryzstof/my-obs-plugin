@@ -57,15 +57,10 @@ if(NOT TARGET OpenSSL::Crypto)
   # Use module mode (FindOpenSSL.cmake)
   if(APPLE)
     # On macOS, only search in CMAKE_PREFIX_PATH (not system paths or Homebrew)
-    # using CMAKE_FIND_USE_... variables to restrict FindOpenSSL search paths
-    # instead of find_package options which would force Config mode.
-    set(CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH OFF)
-    set(CMAKE_FIND_USE_CMAKE_SYSTEM_PATH OFF)
-
+    # We rely on CMAKE_IGNORE_PREFIX_PATH to skip Homebrew.
+    # obs-deps provides static OpenSSL libraries.
+    set(OPENSSL_USE_STATIC_LIBS ON)
     find_package(OpenSSL REQUIRED)
-
-    set(CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH ON)
-    set(CMAKE_FIND_USE_CMAKE_SYSTEM_PATH ON)
   else()
     find_package(OpenSSL REQUIRED)
   endif()
