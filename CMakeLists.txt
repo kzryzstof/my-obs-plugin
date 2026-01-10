@@ -58,9 +58,39 @@ if(NOT TARGET OpenSSL::Crypto)
   if(APPLE)
     # On macOS, only search in CMAKE_PREFIX_PATH (not system paths or Homebrew)
     # We rely on CMAKE_IGNORE_PREFIX_PATH to skip Homebrew.
-    # obs-deps provides static OpenSSL libraries.
-    set(OPENSSL_USE_STATIC_LIBS ON)
-    find_package(OpenSSL REQUIRED)
+    # obs-deps provides OpenSSL libraries.
+    # We first try to find it quietly to provide debug info on failure.
+    find_package(OpenSSL QUIET)
+
+    if(NOT OpenSSL_FOUND)
+        message(STATUS "OpenSSL not found via find_package. Debugging info:")
+        message(STATUS "OPENSSL_ROOT_DIR: ${OPENSSL_ROOT_DIR}")
+
+        if(EXISTS "${OPENSSL_ROOT_DIR}")
+            message(STATUS "OPENSSL_ROOT_DIR exists.")
+            # Check for lib folder
+            if(EXISTS "${OPENSSL_ROOT_DIR}/lib")
+                 file(GLOB _lib_files "${OPENSSL_ROOT_DIR}/lib/*")
+                 message(STATUS "Files in ${OPENSSL_ROOT_DIR}/lib: ${_lib_files}")
+            else()
+                 message(STATUS "${OPENSSL_ROOT_DIR}/lib does not exist")
+            endif()
+             # Check for include folder
+            if(EXISTS "${OPENSSL_ROOT_DIR}/include/openssl")
+                 message(STATUS "${OPENSSL_ROOT_DIR}/include/openssl exists")
+            elseif(EXISTS "${OPENSSL_ROOT_DIR}/include")
+                 file(GLOB _inc_files "${OPENSSL_ROOT_DIR}/include/*")
+                 message(STATUS "Files in ${OPENSSL_ROOT_DIR}/include: ${_inc_files}")
+            else()
+                 message(STATUS "${OPENSSL_ROOT_DIR}/include does not exist")
+            endif()
+        else()
+             message(STATUS "OPENSSL_ROOT_DIR path does not exist!")
+        endif()
+
+        # Try again with REQUIRED to trigger standard failure
+        find_package(OpenSSL REQUIRED)
+    endif()
   else()
     find_package(OpenSSL REQUIRED)
   endif()
