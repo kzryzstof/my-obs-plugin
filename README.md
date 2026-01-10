@@ -23,6 +23,7 @@
 - Xbox Live API access
 
 ### Steps to Build * Run on macOS
+
 1. Clone the repository
 2. On macOS, run `cmake --preset macos-dev`
 3. Run `cd build_macos_dev`
@@ -30,13 +31,25 @@
 5. Copy the binaries to your OBS Studio plugins folder
 6. Start OBS Studio (`open frontend/RelWithDebInfo/OBS.app`)
 
+```bash
+cmake --preset macos-dev
+cd build_macos_dev
+xcodebuild -configuration RelWithDebInfo -scheme achievements-tracker -parallelizeTargets -destination "generic/platform=macOS,name=Any Mac"
+```
+
 ### Run the tests
 
 For local development on macOS, use the helper script that handles code signing from the root folder:
 
 ```bash
 cmake --preset macos-dev
-cmake --test-dir build_macos_dev -C RelWithDebInfo  --output-on-failure
+cmake --build build_macos_dev --target test_encoder --config RelWithDebInfo
+ctest --test-dir build_macos_dev -C RelWithDebInfo --output-on-failure
+```
+or
+
+```bash
+ctest -C RelWithDebInfo --output-on-failure
 ```
 
 For CI builds (which use universal OpenSSL), use ctest directly:
