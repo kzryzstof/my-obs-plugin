@@ -3,7 +3,7 @@
 
 #include <util/bmem.h>
 
-#include "encoding/encoder.h"
+#include "encoding/base64.h"
 
 #include "unity.h"
 
@@ -16,17 +16,17 @@ void setUp(void) {}
 void tearDown(void) {}
 
 void test_encode_base64_null_data_returns_null(void) {
-	TEST_ASSERT_NULL(encode_base64(NULL, 3));
+	TEST_ASSERT_NULL(base64_encode(NULL, 3));
 }
 
 void test_encode_base64_zero_len_returns_null(void) {
 	const uint8_t dummy = 0;
-	TEST_ASSERT_NULL(encode_base64(&dummy, 0));
+	TEST_ASSERT_NULL(base64_encode(&dummy, 0));
 }
 
 void test_encode_base64_ascii_hello(void) {
 	const uint8_t data[] = {'h', 'e', 'l', 'l', 'o'};
-	char *out = encode_base64(data, sizeof(data));
+	char *out = base64_encode(data, sizeof(data));
 
 	assert_str_eq("aGVsbG8=", out);
 	bfree(out);
@@ -34,7 +34,7 @@ void test_encode_base64_ascii_hello(void) {
 
 void test_encode_base64_single_byte(void) {
 	const uint8_t data[] = {0xFF};
-	char *out = encode_base64(data, sizeof(data));
+	char *out = base64_encode(data, sizeof(data));
 
 	// Base64 for 0xFF is /w==
 	assert_str_eq("/w==", out);

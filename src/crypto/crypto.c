@@ -11,20 +11,27 @@
 #include <obs-module.h>
 #include <diagnostics/log.h>
 
-void crypto_debug_print_keypair(EVP_PKEY *pkey) {
+/**
+ * Prints the EC key pair for debugging purposes.
+ *
+ * @param pkey
+ */
+static void crypto_debug_print_keypair(
+	EVP_PKEY *pkey
+) {
 	if (!pkey) {
-		obs_log(4, "[xbl] failed to export EC key pair for debug: pkey is NULL");
+		obs_log(LOG_ERROR, "[xbl] failed to export EC key pair for debug: pkey is NULL");
 		return;
 	}
 
 	BIO *bio = BIO_new(BIO_s_mem());
 	if (!bio) {
-		obs_log(4, "[xbl] failed to export EC key pair for debug: BIO_new failed");
+		obs_log(LOG_ERROR, "[xbl] failed to export EC key pair for debug: BIO_new failed");
 		return;
 	}
 
 	/* Export public key (SPKI format) */
-	obs_log(4, "=== XboxTokenManager ProofOfPossession Key (PUBLIC, PEM) ===");
+	obs_log(LOG_DEBUG, "=== XboxTokenManager ProofOfPossession Key (PUBLIC, PEM) ===");
 	if (PEM_write_bio_PUBKEY(bio, pkey)) {
 		char *pem_data = NULL;
 		long pem_len = BIO_get_mem_data(bio, &pem_data);
@@ -36,14 +43,14 @@ void crypto_debug_print_keypair(EVP_PKEY *pkey) {
 			bfree(pub_pem);
 		}
 	} else {
-		obs_log(4, "[xbl] failed to export public key");
+		obs_log(LOG_ERROR, "[xbl] failed to export public key");
 	}
 
 	/* Reset BIO for reuse */
 	BIO_reset(bio);
 
 	/* Export private key (PKCS8 format) */
-	obs_log(4, "=== XboxTokenManager ProofOfPossession Key (PRIVATE, PEM) ===");
+	obs_log(LOG_DEBUG, "=== XboxTokenManager ProofOfPossession Key (PRIVATE, PEM) ===");
 	if (PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL)) {
 		char *pem_data = NULL;
 		long pem_len = BIO_get_mem_data(bio, &pem_data);
@@ -55,14 +62,19 @@ void crypto_debug_print_keypair(EVP_PKEY *pkey) {
 			bfree(priv_pem);
 		}
 	} else {
-		obs_log(4, "[xbl] failed to export private key");
+		obs_log(LOG_ERROR, "[xbl] failed to export private key");
 	}
 
 	BIO_free(bio);
 }
 
-static char *b64url_encode(const unsigned char *in, size_t inlen) {
-	static const char tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+static char *b64url_encode(
+	const unsigned char *in,
+	size_t inlen
+) {
+	static const char tbl[] =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 	size_t outlen = (inlen + 2) / 3 * 4;
 	char *out = (char *)malloc(outlen + 1);
@@ -73,7 +85,8 @@ static char *b64url_encode(const unsigned char *in, size_t inlen) {
 	size_t i = 0, o = 0;
 
 	while (i + 2 < inlen) {
-		unsigned v = (unsigned)in[i] << 16 | (unsigned)in[i + 1] << 8 | (unsigned)in[i + 2];
+		unsigned v = (unsigned)in[i] << 16 | (unsigned)in[i + 1] << 8 |
+					 (unsigned)in[i + 2];
 		out[o++] = tbl[(v >> 18) & 63];
 		out[o++] = tbl[(v >> 12) & 63];
 		out[o++] = tbl[(v >> 6) & 63];
@@ -99,26 +112,40 @@ static char *b64url_encode(const unsigned char *in, size_t inlen) {
 	return out;
 }
 
-/* Extract uncompressed EC public point (04 || X || Y) from an EVP_PKEY using OpenSSL 3 params API. */
-static int get_ec_public_point_uncompressed(EVP_PKEY *pkey, unsigned char *out, size_t out_size, size_t *out_len) {
+/* Extract uncompressed EC public point (04 || X || Y) from an EVP_PKEY using
+ * OpenSSL 3 params API. */
+static int get_ec_public_point_uncompressed(
+	EVP_PKEY *pkey,
+	unsigned char *out,
+	size_t out_size,
+	size_t *out_len
+) {
 	if (out_len)
 		*out_len = 0;
+
 	if (!pkey || !out || out_size == 0 || !out_len)
 		return 0;
 
 	size_t len = 0;
+
 	/* Query required size */
 	if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, NULL, 0, &len) != 1)
 		return 0;
+
 	if (len == 0 || len > out_size)
 		return 0;
+
 	if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, out, out_size, &len) != 1)
 		return 0;
+
 	*out_len = len;
+
 	return 1;
 }
 
-char *crypto_key_to_string(EVP_PKEY *pkey) {
+char *crypto_key_to_string(
+	EVP_PKEY *pkey
+) {
 	unsigned char point[1 + 32 + 32];
 	size_t point_len = 0;
 	char *x64 = NULL;
@@ -128,7 +155,9 @@ char *crypto_key_to_string(EVP_PKEY *pkey) {
 	if (!pkey)
 		return NULL;
 
-	if (!get_ec_public_point_uncompressed(pkey, point, sizeof(point), &point_len))
+	if (!get_ec_public_point_uncompressed(
+			pkey, point, sizeof(point), &point_len
+		))
 		goto done;
 
 	/* Expect uncompressed point: 0x04 || X(32) || Y(32) for P-256 */
@@ -142,9 +171,14 @@ char *crypto_key_to_string(EVP_PKEY *pkey) {
 		goto done;
 
 	char key_json[4096];
-	snprintf(key_json, sizeof(key_json),
-			 "{\"kty\":\"EC\",\"x\":\"%s\",\"y\":\"%s\",\"crv\":\"P-256\",\"alg\":\"ES256\",\"use\":\"sig\"}", x64,
-			 y64);
+
+	snprintf(
+		key_json,
+		sizeof(key_json),
+		"{\"kty\":\"EC\",\"x\":\"%s\",\"y\":\"%s\",\"crv\":\"P-256\",\"alg\":\"ES256\",\"use\":\"sig\"}",
+		x64,
+		y64
+	);
 
 	returned_key_json = bstrdup(key_json);
 
@@ -187,20 +221,28 @@ fail:
 	return NULL;
 }
 
-static uint64_t unix_seconds_to_windows_100ns(uint64_t unix_seconds) {
+static uint64_t unix_seconds_to_windows_100ns(
+	uint64_t unix_seconds
+) {
 	/* Windows epoch starts at 1601-01-01; Unix at 1970-01-01. */
 	const uint64_t EPOCH_DIFF_SECONDS = 11644473600ULL;
 	return (unix_seconds + EPOCH_DIFF_SECONDS) * 10000000ULL;
 }
 
-static void write_u32_be(uint8_t *dst, uint32_t v) {
+static void write_u32_be(
+	uint8_t *dst,
+	uint32_t v
+) {
 	dst[0] = (uint8_t)((v >> 24) & 0xff);
 	dst[1] = (uint8_t)((v >> 16) & 0xff);
 	dst[2] = (uint8_t)((v >> 8) & 0xff);
 	dst[3] = (uint8_t)(v & 0xff);
 }
 
-static void write_u64_be(uint8_t *dst, uint64_t v) {
+static void write_u64_be(
+	uint8_t *dst,
+	uint64_t v
+) {
 	dst[0] = (uint8_t)((v >> 56) & 0xff);
 	dst[1] = (uint8_t)((v >> 48) & 0xff);
 	dst[2] = (uint8_t)((v >> 40) & 0xff);
@@ -211,7 +253,11 @@ static void write_u64_be(uint8_t *dst, uint64_t v) {
 	dst[7] = (uint8_t)(v & 0xff);
 }
 
-static bool parse_url_path_and_query(const char *url, const char **out_begin, size_t *out_len) {
+static bool parse_url_path_and_query(
+	const char *url,
+	const char **out_begin,
+	size_t *out_len
+) {
 	if (!out_begin || !out_len) {
 		return false;
 	}
@@ -234,6 +280,7 @@ static bool parse_url_path_and_query(const char *url, const char **out_begin, si
 		/* No path -> use "/" */
 		*out_begin = "/";
 		*out_len = 1;
+
 		return true;
 	}
 
@@ -243,7 +290,12 @@ static bool parse_url_path_and_query(const char *url, const char **out_begin, si
 	return true;
 }
 
-static bool ecdsa_sign_p1363_sha256(EVP_PKEY *pkey, const uint8_t *data, size_t data_len, uint8_t out_sig64[64]) {
+static bool ecdsa_sign_p1363_sha256(
+	EVP_PKEY *pkey,
+	const uint8_t *data,
+	size_t data_len,
+	uint8_t out_sig64[64]
+) {
 
 	bool ok = false;
 	EVP_MD_CTX *mdctx = NULL;
@@ -313,8 +365,13 @@ done:
 	return ok;
 }
 
-uint8_t *crypto_sign_policy_header(
-	EVP_PKEY *private_key, const char *url, const char *authorization_token, const char *payload, size_t *out_len) {
+uint8_t *crypto_sign(
+	EVP_PKEY *private_key,
+	const char *url,
+	const char *authorization_token,
+	const char *payload,
+	size_t *out_len
+) {
 
 	if (out_len)
 		*out_len = 0;
@@ -324,7 +381,8 @@ uint8_t *crypto_sign_policy_header(
 
 	const uint32_t policy_version = 1;
 	const uint64_t unix_seconds = (uint64_t)time(NULL);
-	const uint64_t windows_ts_100ns = unix_seconds_to_windows_100ns(unix_seconds);
+	const uint64_t windows_ts_100ns =
+		unix_seconds_to_windows_100ns(unix_seconds);
 
 	const char *path_begin = NULL;
 	size_t path_len = 0;
@@ -338,7 +396,8 @@ uint8_t *crypto_sign_policy_header(
 	const size_t payload_len = strlen(payload);
 
 	/* Buffer: u32 + u8 + u64 + u8 + method\0 + path\0 + auth\0 + payload\0 */
-	const size_t buf_len = 4 + 1 + 8 + 1 + (method_len + 1) + (path_len + 1) + (auth_len + 1) + (payload_len + 1);
+	const size_t buf_len = 4 + 1 + 8 + 1 + (method_len + 1) + (path_len + 1) +
+						   (auth_len + 1) + (payload_len + 1);
 	uint8_t *buf = (uint8_t *)bzalloc(buf_len);
 
 	if (!buf)
@@ -379,8 +438,8 @@ uint8_t *crypto_sign_policy_header(
 		for (size_t i = 0; i < buf_len; i++) {
 			sprintf(hex + i * 2, "%02x", buf[i]);
 		}
-		printf("[sign] Buffer to sign (hex): %s\n", hex);
-		printf("[sign] Buffer to sign (length): %zu\n\n", buf_len);
+		obs_log(LOG_DEBUG, "[sign] Buffer to sign (hex): %s\n", hex);
+		obs_log(LOG_DEBUG, "[sign] Buffer to sign (length): %zu\n\n", buf_len);
 		bfree(hex);
 	}
 

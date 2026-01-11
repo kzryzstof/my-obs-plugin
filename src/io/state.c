@@ -31,6 +31,11 @@ static char *get_state_path(void) {
 	return path;
 }
 
+/**
+ * Reads the state from the disk.
+ *
+ * @return
+ */
 static obs_data_t *load_state(void) {
 	char *path = get_state_path();
 
@@ -49,7 +54,14 @@ static obs_data_t *load_state(void) {
 	return data;
 }
 
-static void save_state(obs_data_t *data) {
+/**
+ * Persists the state to disk
+ *
+ * @param data
+ */
+static void save_state(
+	obs_data_t *data
+) {
 	if (!data)
 		return;
 
@@ -121,7 +133,10 @@ const char *state_get_device_uuid(void) {
 	return device_uuid;
 }
 
-void state_set_tokens(const char *xid, const char *token) {
+void state_set_tokens(
+	const char *xid,
+	const char *token
+) {
 	obs_data_set_string(g_state, XID_KEY, xid);
 	obs_data_set_string(g_state, XSTS_TOKEN_KEY, token);
 

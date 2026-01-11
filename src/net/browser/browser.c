@@ -5,7 +5,15 @@
 
 #include <stdlib.h>
 
-bool open_url(const char *url) {
+/**
+ * Opens the page at the URL in a browser.
+ *
+ * @param url
+ * @return
+ */
+bool open_url(
+	const char *url
+) {
 	if (!url || !*url)
 		return false;
 
@@ -29,7 +37,11 @@ bool open_url(const char *url) {
 
 #else
 
-	obs_log(LOG_WARNING, "Open-browser not implemented for this OS yet. Please open: %s", url);
+	obs_log(
+		LOG_WARNING,
+		"Open-browser not implemented for this OS yet. Please open: %s",
+		url
+	);
 	return false;
 
 #endif

@@ -491,7 +491,7 @@ void test_crypto_sign_and_verify_roundtrip(void) {
 
 	/* Sign the data */
 	size_t sig_len = 0;
-	uint8_t *header = crypto_sign_policy_header(pkey, url, auth_token, payload, &sig_len);
+	uint8_t *header = crypto_sign(pkey, url, auth_token, payload, &sig_len);
 	TEST_ASSERT_NOT_NULL(header);
 	TEST_ASSERT_EQUAL_UINT(76, sig_len);
 
@@ -599,19 +599,19 @@ void test_crypto_sign_policy_header_null_inputs(void) {
 	size_t out_len = 0;
 
 	/* NULL private key */
-	TEST_ASSERT_NULL(crypto_sign_policy_header(NULL, "https://test.com", "", "{}", &out_len));
+	TEST_ASSERT_NULL(crypto_sign(NULL, "https://test.com", "", "{}", &out_len));
 
 	/* NULL URL */
-	TEST_ASSERT_NULL(crypto_sign_policy_header(pkey, NULL, "", "{}", &out_len));
+	TEST_ASSERT_NULL(crypto_sign(pkey, NULL, "", "{}", &out_len));
 
 	/* NULL auth token */
-	TEST_ASSERT_NULL(crypto_sign_policy_header(pkey, "https://test.com", NULL, "{}", &out_len));
+	TEST_ASSERT_NULL(crypto_sign(pkey, "https://test.com", NULL, "{}", &out_len));
 
 	/* NULL payload */
-	TEST_ASSERT_NULL(crypto_sign_policy_header(pkey, "https://test.com", "", NULL, &out_len));
+	TEST_ASSERT_NULL(crypto_sign(pkey, "https://test.com", "", NULL, &out_len));
 
 	/* NULL out_len */
-	TEST_ASSERT_NULL(crypto_sign_policy_header(pkey, "https://test.com", "", "{}", NULL));
+	TEST_ASSERT_NULL(crypto_sign(pkey, "https://test.com", "", "{}", NULL));
 
 	EVP_PKEY_free(pkey);
 }

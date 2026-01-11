@@ -137,18 +137,16 @@ target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE
     src/main.c
-    src/sources/achievements-tracker-source.c
-    src/configuration/properties.c
+    src/sources/xbox_achievements_text_source.c
     src/crypto/crypto.c
     src/net/browser/browser.c
     src/net/http/http.c
     src/net/json/json.c
-    src/oauth/callback-server.c
     src/oauth/util.c
     src/oauth/xbox-live.c
     src/xbox/client.c
     src/io/state.c
-    src/encoding/encoder.c
+        src/encoding/base64.c
     src/util/uuid.c
 )
 
@@ -170,7 +168,7 @@ if(BUILD_TESTING)
     test_encoder
     test/test_encoder.c
     ${unity_SOURCE_DIR}/src/unity.c
-    src/encoding/encoder.c
+          src/encoding/base64.c
     src/util/uuid.c
     test/stubs/bmem_stub.c
   )
@@ -215,7 +213,7 @@ if(BUILD_TESTING)
     test/test_crypto.c
     ${unity_SOURCE_DIR}/src/unity.c
     src/crypto/crypto.c
-    src/encoding/encoder.c
+          src/encoding/base64.c
     src/util/uuid.c
     test/stubs/bmem_stub.c
   )
@@ -261,7 +259,7 @@ if(BUILD_TESTING)
     ${unity_SOURCE_DIR}/src/unity.c
     src/oauth/xbox-live.c
     src/crypto/crypto.c
-    src/encoding/encoder.c
+          src/encoding/base64.c
     src/net/http/http.c
     src/net/json/json.c
     src/util/uuid.c

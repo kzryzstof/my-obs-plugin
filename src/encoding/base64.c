@@ -1,4 +1,4 @@
-#include "encoding/encoder.h"
+#include "encoding/base64.h"
 
 #include <openssl/evp.h>
 #include <stdint.h>
@@ -6,7 +6,10 @@
 
 #include <util/bmem.h>
 
-char *encode_base64(const uint8_t *data, size_t len) {
+char *base64_encode(
+	const uint8_t *data,
+	size_t len
+) {
 	if (!data || len == 0) {
 		return NULL;
 	}
@@ -19,7 +22,9 @@ char *encode_base64(const uint8_t *data, size_t len) {
 		return NULL;
 	}
 
-	const int written = EVP_EncodeBlock((unsigned char *)out, (const unsigned char *)data, (int)len);
+	const int written = EVP_EncodeBlock(
+		(unsigned char *)out, (const unsigned char *)data, (int)len
+	);
 
 	if (written <= 0) {
 		bfree(out);

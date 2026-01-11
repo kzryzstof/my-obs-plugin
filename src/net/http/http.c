@@ -6,12 +6,19 @@
 #include <curl/curl.h>
 #include <string.h>
 
+#define DEFAULT_USER_AGENT "achievements-tracker-obs-plugin/1.0"
+
 struct http_buf {
 	char *ptr;
 	size_t len;
 };
 
-static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *userp) {
+static size_t curl_write_cb(
+	void *contents,
+	size_t size,
+	size_t nmemb,
+	void *userp
+) {
 	size_t realsize = size * nmemb;
 	struct http_buf *mem = (struct http_buf *)userp;
 
@@ -25,7 +32,13 @@ static size_t curl_write_cb(void *contents, size_t size, size_t nmemb, void *use
 	return realsize;
 }
 
-static int curl_debug_cb(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr) {
+static int curl_debug_cb(
+	CURL *handle,
+	curl_infotype type,
+	char *data,
+	size_t size,
+	void *userptr
+) {
 	(void)handle;
 	(void)userptr;
 
@@ -43,7 +56,11 @@ static int curl_debug_cb(CURL *handle, curl_infotype type, char *data, size_t si
 	return 0;
 }
 
-char *http_post_form(const char *url, const char *postfields, long *out_http_code) {
+char *http_post_form(
+	const char *url,
+	const char *post_fields,
+	long *out_http_code
+) {
 	if (out_http_code)
 		*out_http_code = 0;
 
@@ -57,7 +74,9 @@ char *http_post_form(const char *url, const char *postfields, long *out_http_cod
 	chunk.len = 0;
 
 	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+	headers = curl_slist_append(
+		headers, "Content-Type: application/x-www-form-urlencoded"
+	);
 
 	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, curl_debug_cb);
@@ -66,17 +85,19 @@ char *http_post_form(const char *url, const char *postfields, long *out_http_cod
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(curl, CURLOPT_POST, 1L);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postfields);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, DEFAULT_USER_AGENT);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
 	CURLcode res = curl_easy_perform(curl);
 
 	if (res != CURLE_OK) {
-		obs_log(LOG_WARNING, "curl POST form failed: %s", curl_easy_strerror(res));
+		obs_log(
+			LOG_WARNING, "curl POST form failed: %s", curl_easy_strerror(res)
+		);
 		curl_slist_free_all(headers);
 		curl_easy_cleanup(curl);
 		bfree(chunk.ptr);
@@ -96,7 +117,12 @@ char *http_post_form(const char *url, const char *postfields, long *out_http_cod
 	return chunk.ptr;
 }
 
-char *http_post(const char *url, const char *body, const char *extra_headers, long *out_http_code) {
+char *http_post(
+	const char *url,
+	const char *body,
+	const char *extra_headers,
+	long *out_http_code
+) {
 	if (out_http_code)
 		*out_http_code = 0;
 
@@ -111,7 +137,8 @@ char *http_post(const char *url, const char *body, const char *extra_headers, lo
 
 	struct curl_slist *headers = NULL;
 
-	/* Avoid 100-continue edge cases that can hide error bodies on some proxies */
+	/* Avoid 100-continue edge cases that can hide error bodies on some proxies
+	 */
 	headers = curl_slist_append(headers, "Expect:");
 
 	if (extra_headers && *extra_headers) {
@@ -149,7 +176,7 @@ char *http_post(const char *url, const char *body, const char *extra_headers, lo
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, DEFAULT_USER_AGENT);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
@@ -174,7 +201,12 @@ char *http_post(const char *url, const char *body, const char *extra_headers, lo
 	return chunk.ptr;
 }
 
-char *http_post_json(const char *url, const char *json_body, const char *extra_headers, long *out_http_code) {
+char *http_post_json(
+	const char *url,
+	const char *json_body,
+	const char *extra_headers,
+	long *out_http_code
+) {
 	if (out_http_code)
 		*out_http_code = 0;
 
@@ -190,7 +222,8 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 	struct curl_slist *headers = NULL;
 	headers = curl_slist_append(headers, "Content-Type: application/json");
 
-	/* Avoid 100-continue edge cases that can hide error bodies on some proxies */
+	/* Avoid 100-continue edge cases that can hide error bodies on some proxies
+	 */
 	headers = curl_slist_append(headers, "Expect:");
 
 	if (extra_headers && *extra_headers) {
@@ -228,11 +261,12 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_body);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, DEFAULT_USER_AGENT);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
 	CURLcode res = curl_easy_perform(curl);
+
 	if (res != CURLE_OK) {
 		obs_log(LOG_WARNING, "curl POST json failed: %s", curl_easy_strerror(res));
 		curl_slist_free_all(headers);
@@ -253,7 +287,12 @@ char *http_post_json(const char *url, const char *json_body, const char *extra_h
 	return chunk.ptr;
 }
 
-char *http_get(const char *url, const char *extra_headers, const char *postfields, long *out_http_code) {
+char *http_get(
+	const char *url,
+	const char *extra_headers,
+	const char *post_fields,
+	long *out_http_code
+) {
 	if (out_http_code)
 		*out_http_code = 0;
 
@@ -268,7 +307,8 @@ char *http_get(const char *url, const char *extra_headers, const char *postfield
 
 	struct curl_slist *headers = NULL;
 
-	/* Avoid 100-continue edge cases that can hide error bodies on some proxies */
+	/* Avoid 100-continue edge cases that can hide error bodies on some proxies
+	 */
 	headers = curl_slist_append(headers, "Expect:");
 
 	if (extra_headers && *extra_headers) {
@@ -306,12 +346,12 @@ char *http_get(const char *url, const char *extra_headers, const char *postfield
 	curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "achievements-tracker-obs-plugin/1.0");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, DEFAULT_USER_AGENT);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
-	if (postfields)
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postfields);
+	if (post_fields)
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_fields);
 
 	CURLcode res = curl_easy_perform(curl);
 
@@ -335,7 +375,9 @@ char *http_get(const char *url, const char *extra_headers, const char *postfield
 	return chunk.ptr;
 }
 
-char *http_urlencode(const char *in) {
+char *http_urlencode(
+	const char *in
+) {
 	if (!in)
 		return NULL;
 
