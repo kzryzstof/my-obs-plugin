@@ -146,7 +146,7 @@ target_sources(
     src/oauth/xbox-live.c
     src/xbox/client.c
     src/io/state.c
-        src/encoding/base64.c
+    src/encoding/base64.c
     src/util/uuid.c
 )
 
@@ -168,7 +168,7 @@ if(BUILD_TESTING)
     test_encoder
     test/test_encoder.c
     ${unity_SOURCE_DIR}/src/unity.c
-          src/encoding/base64.c
+    src/encoding/base64.c
     src/util/uuid.c
     test/stubs/bmem_stub.c
   )
@@ -213,7 +213,7 @@ if(BUILD_TESTING)
     test/test_crypto.c
     ${unity_SOURCE_DIR}/src/unity.c
     src/crypto/crypto.c
-          src/encoding/base64.c
+    src/encoding/base64.c
     src/util/uuid.c
     test/stubs/bmem_stub.c
   )
@@ -259,7 +259,7 @@ if(BUILD_TESTING)
     ${unity_SOURCE_DIR}/src/unity.c
     src/oauth/xbox-live.c
     src/crypto/crypto.c
-          src/encoding/base64.c
+    src/encoding/base64.c
     src/net/http/http.c
     src/net/json/json.c
     src/util/uuid.c
