@@ -398,7 +398,7 @@ void test_crypto_sign_policy_header_output_structure(void) {
  * Test: Verify that crypto_generate_p256_keypair creates a valid key.
  */
 void test_crypto_generate_p256_keypair(void) {
-    EVP_PKEY *pkey = crypto_generate_p256_keypair();
+    EVP_PKEY *pkey = crypto_generate_key();
     TEST_ASSERT_NOT_NULL(pkey);
 
     /* Verify it's an EC key */
@@ -411,10 +411,10 @@ void test_crypto_generate_p256_keypair(void) {
  * Test: Verify that crypto_key_to_string produces valid JSON.
  */
 void test_crypto_key_to_string(void) {
-    EVP_PKEY *pkey = crypto_generate_p256_keypair();
+    EVP_PKEY *pkey = crypto_generate_key();
     TEST_ASSERT_NOT_NULL(pkey);
 
-    char *json = crypto_key_to_string(pkey);
+    char *json = crypto_to_string(pkey);
     TEST_ASSERT_NOT_NULL(json);
 
     /* Verify JSON contains expected fields */
@@ -478,7 +478,7 @@ void test_crypto_verify_known_signature(void) {
  */
 void test_crypto_sign_and_verify_roundtrip(void) {
     /* Generate a fresh keypair */
-    EVP_PKEY *pkey = crypto_generate_p256_keypair();
+    EVP_PKEY *pkey = crypto_generate_key();
     TEST_ASSERT_NOT_NULL(pkey);
 
     const char *url        = "https://sisu.xboxlive.com/authorize";
@@ -593,7 +593,7 @@ void test_crypto_sign_and_verify_roundtrip(void) {
  * Test: crypto_sign_policy_header returns NULL for invalid inputs.
  */
 void test_crypto_sign_policy_header_null_inputs(void) {
-    EVP_PKEY *pkey = crypto_generate_p256_keypair();
+    EVP_PKEY *pkey = crypto_generate_key();
     TEST_ASSERT_NOT_NULL(pkey);
 
     size_t out_len = 0;

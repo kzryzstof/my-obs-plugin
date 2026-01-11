@@ -11,12 +11,9 @@
 #include <obs-module.h>
 #include <diagnostics/log.h>
 
-/**
- * Prints the EC key pair for debugging purposes.
- *
- * @param pkey
- */
-static void crypto_debug_print_keypair(EVP_PKEY *pkey) {
+#include "net/json/json.h"
+
+static void crypto_print_key(EVP_PKEY *pkey) {
     if (!pkey) {
         obs_log(LOG_ERROR, "[xbl] failed to export EC key pair for debug: pkey is NULL");
         return;
@@ -130,7 +127,13 @@ static int get_ec_public_point_uncompressed(EVP_PKEY *pkey, unsigned char *out, 
     return 1;
 }
 
-char *crypto_key_to_string(EVP_PKEY *pkey) {
+/**
+ * Converts an EC P-256 public key to a JWK JSON string.
+ *
+ * @param pkey
+ * @return
+ */
+char *crypto_to_string(EVP_PKEY *pkey) {
     unsigned char point[1 + 32 + 32];
     size_t        point_len         = 0;
     char         *x64               = NULL;
@@ -169,8 +172,152 @@ done:
     return returned_key_json;
 }
 
-/* Generate an EC P-256 keypair. Returns NULL on failure. */
-EVP_PKEY *crypto_generate_p256_keypair(void) {
+/* Minimal base64url decode for unpadded input. Returns 1 on success. */
+static int b64url_decode_32(const char *in, uint8_t out[32]) {
+    if (!in || !out)
+        return 0;
+
+    uint8_t buf[32];
+    size_t  o = 0;
+
+    /* base64url: A-Z a-z 0-9 - _ ; no '=' padding expected */
+    unsigned acc  = 0;
+    int      bits = 0;
+
+    for (const unsigned char *p = (const unsigned char *)in; *p; ++p) {
+        unsigned v;
+        if (*p >= 'A' && *p <= 'Z')
+            v = (unsigned)(*p - 'A');
+        else if (*p >= 'a' && *p <= 'z')
+            v = (unsigned)(*p - 'a' + 26);
+        else if (*p >= '0' && *p <= '9')
+            v = (unsigned)(*p - '0' + 52);
+        else if (*p == '-')
+            v = 62;
+        else if (*p == '_')
+            v = 63;
+        else
+            return 0; /* unexpected char */
+
+        acc = (acc << 6) | v;
+        bits += 6;
+
+        while (bits >= 8) {
+            bits -= 8;
+            if (o >= sizeof(buf))
+                return 0;
+            buf[o++] = (uint8_t)((acc >> bits) & 0xff);
+        }
+    }
+
+    /* For unpadded base64url, leftover bits must be zero-equivalent. */
+    if (bits != 0) {
+        if ((acc & ((1u << bits) - 1u)) != 0)
+            return 0;
+    }
+
+    if (o != 32)
+        return 0;
+    memcpy(out, buf, 32);
+    return 1;
+}
+
+/**
+ * Converts a JWK JSON string to an EC P-256 public key.
+ *
+ * @param key_json
+ * @return
+ */
+EVP_PKEY *crypto_from_string(const char *key_json) {
+    if (!key_json)
+        return NULL;
+
+    char *kty = json_get_string_value(key_json, "kty");
+
+    if (!kty) {
+        return NULL;
+    }
+
+    if (strcmp(kty, "EC") != 0) {
+        bfree(kty);
+        return NULL;
+    }
+
+    char *crv = json_get_string_value(key_json, "crv");
+
+    if (!crv) {
+        bfree(kty);
+        return NULL;
+    }
+
+    if (strcmp(crv, "P-256") != 0) {
+        bfree(crv);
+        bfree(kty);
+        return NULL;
+    }
+
+    char *x64 = json_get_string_value(key_json, "x");
+
+    if (!x64) {
+        bfree(crv);
+        bfree(kty);
+        return NULL;
+    }
+
+    char *y64 = json_get_string_value(key_json, "y");
+
+    if (!y64) {
+        bfree(x64);
+        bfree(crv);
+        bfree(kty);
+        return NULL;
+    }
+
+    uint8_t x[32], y[32];
+    if (!b64url_decode_32(x64, x)) {
+        return NULL;
+    }
+
+    if (!b64url_decode_32(y64, y)) {
+        return NULL;
+    }
+
+    uint8_t pub[1 + 32 + 32];
+    pub[0] = 0x04;
+    memcpy(pub + 1, x, 32);
+    memcpy(pub + 1 + 32, y, 32);
+
+    EVP_PKEY     *pkey = NULL;
+    EVP_PKEY_CTX *ctx  = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    if (!ctx) {
+        return NULL;
+    }
+
+    if (EVP_PKEY_fromdata_init(ctx) != 1) {
+        EVP_PKEY_CTX_free(ctx);
+        return NULL;
+    }
+
+    OSSL_PARAM params[3];
+    params[0] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char *)"prime256v1", 0);
+    params[1] = OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY, pub, sizeof(pub));
+    params[2] = OSSL_PARAM_construct_end();
+
+    if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) != 1) {
+        EVP_PKEY_CTX_free(ctx);
+        return NULL;
+    }
+
+    EVP_PKEY_CTX_free(ctx);
+    return pkey; /* caller frees with EVP_PKEY_free() */
+}
+
+/**
+ * Generates a new EC P-256 key pair.
+ *
+ * @return
+ */
+EVP_PKEY *crypto_generate_key(void) {
     EVP_PKEY     *pkey = NULL;
     EVP_PKEY_CTX *ctx  = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
 
@@ -192,7 +339,7 @@ EVP_PKEY *crypto_generate_p256_keypair(void) {
 
     EVP_PKEY_CTX_free(ctx);
 
-    crypto_debug_print_keypair(pkey);
+    crypto_print_key(pkey);
 
     return pkey;
 
@@ -329,6 +476,16 @@ done:
     return ok;
 }
 
+/**
+ * Creates a signature header for the given request parameters.
+ *
+ * @param private_key
+ * @param url
+ * @param authorization_token
+ * @param payload
+ * @param out_len
+ * @return
+ */
 uint8_t *crypto_sign(EVP_PKEY *private_key, const char *url, const char *authorization_token, const char *payload,
                      size_t *out_len) {
 

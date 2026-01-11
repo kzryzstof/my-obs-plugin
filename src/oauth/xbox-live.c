@@ -153,7 +153,7 @@ static void retrieve_title_token(struct device_flow_ctx *ctx) {
              "{\"Properties\":{\"AuthMethod\":\"RPS\",\"DeviceToken\":\"%s\",\"RpsTicket\":\"t=%s\",\"SiteName\":\"user.auth.xboxlive.com\",\"ProofKey\":%s},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}",
              ctx->device_token,
              ctx->user_token,
-             crypto_key_to_string(ctx->device_key));
+             crypto_to_string(ctx->device_key));
 
     size_t   signature_len = 0;
     uint8_t *signature     = crypto_sign(ctx->device_key, TITLE_AUTHENTICATE, "", json_body, &signature_len);
@@ -245,7 +245,7 @@ static bool retrieve_device_token(struct device_flow_ctx *ctx) {
              ctx->device_uuid,
              kDeviceType,
              serial_number,
-             crypto_key_to_string(ctx->device_key));
+             crypto_to_string(ctx->device_key));
 
     size_t   signature_len = 0;
     uint8_t *signature     = crypto_sign(ctx->device_key, DEVICE_AUTHENTICATE, "", json_body, &signature_len);
@@ -538,7 +538,7 @@ static bool start_device_registration_flow(const char *device_uuid) {
     ctx->interval_in_seconds    = *interval;
     ctx->expires_in_seconds     = *expires_in;
     ctx->got_user_token         = false;
-    ctx->device_key             = crypto_generate_p256_keypair();
+    ctx->device_key             = crypto_generate_key();
 
     check_access_token_loop(ctx);
 
