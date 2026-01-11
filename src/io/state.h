@@ -6,11 +6,17 @@ extern "C" {
 
 void io_load(void);
 
+const char *state_get_device_uuid(void);
+
 const char *get_xid(void);
 const char *get_xsts_token(void);
 
-void clear_xid_xsts_token(void);
-void set_xid_xsts_token(const char *, const char *);
+void state_clear(void);
+
+void state_set_tokens(
+	const char *xid,
+	const char *token
+);
 
 #ifdef __cplusplus
 }

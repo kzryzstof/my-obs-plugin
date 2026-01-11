@@ -24,17 +24,24 @@ char *xbox_fetch_achievements_json(long *out_http_code) {
 	}
 
 	char url[512];
-	snprintf(url, sizeof(url),
-			 "https://achievements.xboxlive.com/users/xuid(%s)/achievements?titleId=1879711255&maxItems=1000", xid);
+	snprintf(
+		url,
+		sizeof(url),
+		"https://achievements.xboxlive.com/users/xuid(%s)/achievements?titleId=1879711255&maxItems=1000",
+		xid
+	);
 
 	char headers[2048];
-	snprintf(headers, sizeof(headers),
-			 "Authorization: %s\n"
-			 "Accept: application/json\n"
-			 "Accept-Language: en-CA\n"
-			 "Content-Type: application/json\n"
-			 "x-xbl-contract-version: 2\n",
-			 auth);
+	snprintf(
+		headers,
+		sizeof(headers),
+		"Authorization: %s\n"
+		"Accept: application/json\n"
+		"Accept-Language: en-CA\n"
+		"Content-Type: application/json\n"
+		"x-xbl-contract-version: 2\n",
+		auth
+	);
 
 	long code = 0;
 	char *json = http_get(url, headers, NULL, &code);
@@ -66,16 +73,24 @@ char *xbox_fetch_presence_json(long *out_http_code) {
 	}
 
 	char url[512];
-	snprintf(url, sizeof(url), "https://userpresence.xboxlive.com/users/xuid(%s)/richpresence", xid);
+	snprintf(
+		url,
+		sizeof(url),
+		"https://userpresence.xboxlive.com/users/xuid(%s)/richpresence",
+		xid
+	);
 
 	char headers[2048];
-	snprintf(headers, sizeof(headers),
-			 "Authorization: %s\n"
-			 "Accept: application/json\n"
-			 "Accept-Language: en-CA\n"
-			 "Content-Type: application/json\n"
-			 "x-xbl-contract-version: 2\n",
-			 auth);
+	snprintf(
+		headers,
+		sizeof(headers),
+		"Authorization: %s\n"
+		"Accept: application/json\n"
+		"Accept-Language: en-CA\n"
+		"Content-Type: application/json\n"
+		"x-xbl-contract-version: 2\n",
+		auth
+	);
 
 	long code = 0;
 	char *json = http_get(url, headers, NULL, &code);

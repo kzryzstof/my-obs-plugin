@@ -1,10 +1,14 @@
 #include "net/json/json.h"
 
 #include <obs-module.h>
-#include <curl/curl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-char *json_get_string_value(const char *json, const char *key) {
+char *json_get_string_value(
+	const char *json,
+	const char *key
+) {
 	if (!json || !key)
 		return NULL;
 
@@ -49,7 +53,10 @@ char *json_get_string_value(const char *json, const char *key) {
 	return out;
 }
 
-long *json_get_long_value(const char *json, const char *key) {
+long *json_get_long_value(
+	const char *json,
+	const char *key
+) {
 	if (!json || !key)
 		return NULL;
 

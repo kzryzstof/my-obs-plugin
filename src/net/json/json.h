@@ -1,14 +1,18 @@
 #pragma once
 
-#include <stdbool.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-char *json_get_string_value(const char *json, const char *key);
+char *json_get_string_value(
+	const char *json,
+	const char *key
+);
 
-long *json_get_long_value(const char *json, const char *key);
+long *json_get_long_value(
+	const char *json,
+	const char *key
+);
 
 #ifdef __cplusplus
 }

@@ -1,10 +1,14 @@
 #pragma once
 
+#include <uuid/uuid.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void register_achievements_tracker_source(void);
+void uuid_get_random(
+	char random_uuid[37]
+);
 
 #ifdef __cplusplus
 }
