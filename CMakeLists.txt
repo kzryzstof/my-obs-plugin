@@ -21,6 +21,11 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
+# Windows UUID (Rpc.h/UUuid*) lives in Rpcrt4
+if(WIN32)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Rpcrt4)
+endif()
+
 # HTTP client for OAuth + XBL/XSTS flows
 find_package(CURL REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
@@ -186,6 +191,10 @@ if(BUILD_TESTING)
   # Unity uses UNITY_INCLUDE_CONFIG_H to include a project-specific config header.
   target_compile_definitions(test_encoder PRIVATE UNITY_INCLUDE_CONFIG_H)
 
+  if(WIN32)
+    target_link_libraries(test_encoder PRIVATE Rpcrt4)
+  endif()
+
   # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
   if(TARGET OpenSSL::Crypto)
     target_link_libraries(test_encoder PRIVATE OpenSSL::Crypto)
@@ -229,6 +238,10 @@ if(BUILD_TESTING)
   )
 
   target_compile_definitions(test_crypto PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  if(WIN32)
+    target_link_libraries(test_crypto PRIVATE Rpcrt4)
+  endif()
 
   if(TARGET OpenSSL::Crypto)
     target_link_libraries(test_crypto PRIVATE OpenSSL::Crypto)
