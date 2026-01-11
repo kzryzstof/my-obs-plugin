@@ -247,7 +247,7 @@ if(BUILD_TESTING)
     ${unity_SOURCE_DIR}/src/unity.c
     src/crypto/crypto.c
     src/encoding/base64.c
-    src/net/json.c
+    src/net/json/json.c
     src/util/uuid.c
     test/stubs/bmem_stub.c
   )
