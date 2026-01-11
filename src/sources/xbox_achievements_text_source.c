@@ -148,7 +148,7 @@ static bool on_sign_out_clicked(
 	UNUSED_PARAMETER(property);
 	UNUSED_PARAMETER(data);
 
-	state_clear_tokens();
+	state_clear();
 
 	refresh_page();
 

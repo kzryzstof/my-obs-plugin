@@ -93,7 +93,8 @@ const char *get_xid(void) {
 	return obs_data_get_string(g_state, XID_KEY);
 }
 
-void state_clear_tokens(void) {
+void state_clear(void) {
+	obs_data_set_string(g_state, DEVICE_UUID, "");
 	obs_data_set_string(g_state, XID_KEY, "");
 	obs_data_set_string(g_state, XSTS_TOKEN_KEY, "");
 
