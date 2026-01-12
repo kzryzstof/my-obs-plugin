@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-bool xbox_live_get_authenticate(const device_t *device, char **out_uhs, char **out_xid, char **out_xsts_token);
+bool xbox_live_get_authenticate(const device_t *device);
 
 #ifdef __cplusplus
 }

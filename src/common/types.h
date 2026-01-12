@@ -18,13 +18,19 @@ typedef struct device {
     const EVP_PKEY *keys;
 } device_t;
 
-typedef struct device_token {
-    const char *token;
-} device_token_t;
+typedef struct token {
+    const char *value;
+} token_t;
 
 typedef struct xbox_live_authenticate_result {
     const char *error_message;
 } xbox_live_authenticate_result_t;
+
+typedef struct xbox_identity_result {
+    const char *gamertag;
+    const char *xid;
+    const token_t *token;
+} xbox_identity_result_t;
 
 #ifdef __cplusplus
 }

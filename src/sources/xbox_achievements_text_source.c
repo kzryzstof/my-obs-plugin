@@ -152,15 +152,12 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
 
     device_t *device = state_get_device();
 
-    char *xid        = NULL;
-    char *uhs        = NULL;
-    char *xsts_token = NULL;
-
-    if (!xbox_live_get_authenticate(device, &uhs, &xid, &xsts_token)) {
+    if (!xbox_live_get_authenticate(device)) {
         obs_log(LOG_WARNING, "Xbox sign-in failed");
         return false;
     }
 
+    /*
     char *token = bzalloc(4096);
     snprintf(token, 4096, "XBL3.0 x=%s;%s", uhs, xsts_token);
     state_set_tokens(xid, token);
@@ -174,6 +171,7 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
     xbox_fetch_presence_json(&out_http_code);
 
     refresh_page();
+    */
 
     return true;
 }

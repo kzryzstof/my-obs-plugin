@@ -9,9 +9,16 @@
 #include "util/uuid.h"
 
 #define PERSIST_FILE "state.json"
+
+#define USER_TOKEN "user_token"
+
 #define DEVICE_UUID "device_uuid"
 #define DEVICE_SERIAL_NUMBER "device_serial_number"
 #define DEVICE_KEYS "device_keys"
+#define DEVICE_TOKEN "device_token"
+
+#define SISU_TOKEN "sisu_token"
+
 #define XSTS_TOKEN_KEY "xsts_token"
 #define XID_KEY "xid"
 
@@ -96,7 +103,10 @@ const char *get_xid(void) {
 
 void state_clear(void) {
     obs_data_set_string(g_state, DEVICE_UUID, "");
+    obs_data_set_string(g_state, DEVICE_SERIAL_NUMBER, "");
+    obs_data_set_string(g_state, DEVICE_TOKEN, "");
     obs_data_set_string(g_state, DEVICE_KEYS, "");
+
     obs_data_set_string(g_state, XID_KEY, "");
     obs_data_set_string(g_state, XSTS_TOKEN_KEY, "");
 
@@ -205,7 +215,74 @@ device_t *state_get_device(void) {
 void state_set_tokens(const char *xid, const char *token) {
     obs_data_set_string(g_state, XID_KEY, xid);
     obs_data_set_string(g_state, XSTS_TOKEN_KEY, token);
-
-    /* Immediately save the state to disk */
     save_state(g_state);
+}
+
+void state_set_device_token(const token_t *device_token) {
+    obs_data_set_string(g_state, DEVICE_TOKEN, device_token->value);
+    obs_log(LOG_INFO, "Device token saved %s", device_token->value);
+    save_state(g_state);
+}
+
+token_t *state_get_device_token(void) {
+
+    const char *device_token = obs_data_get_string(g_state, DEVICE_TOKEN);
+
+    if (!device_token || strlen(device_token) == 0) {
+        obs_log(LOG_INFO, "No device token found in the cache");
+        return NULL;
+    }
+
+    obs_log(LOG_INFO, "Device token found in the cache: %s", device_token);
+
+    token_t *token = bzalloc(sizeof(token_t));
+    token->value   = device_token;
+
+    return token;
+}
+
+void state_set_sisu_token(const token_t *sisu_token) {
+    obs_data_set_string(g_state, SISU_TOKEN, sisu_token->value);
+    obs_log(LOG_INFO, "Sisu token saved %s", sisu_token->value);
+    save_state(g_state);
+}
+
+token_t *state_get_sisu_token(void) {
+
+    const char *sisu_token = obs_data_get_string(g_state, SISU_TOKEN);
+
+    if (!sisu_token || strlen(sisu_token) == 0) {
+        obs_log(LOG_INFO, "No sisu token found in the cache");
+        return NULL;
+    }
+
+    obs_log(LOG_INFO, "Sisu token found in the cache: %s", sisu_token);
+
+    token_t *token = bzalloc(sizeof(token_t));
+    token->value   = sisu_token;
+
+    return token;
+}
+
+void state_set_user_token(const token_t *user_token) {
+    obs_data_set_string(g_state, USER_TOKEN, user_token->value);
+    obs_log(LOG_INFO, "User token saved %s", user_token->value);
+    save_state(g_state);
+}
+
+token_t *state_get_user_token(void) {
+
+    const char *user_token = obs_data_get_string(g_state, USER_TOKEN);
+
+    if (!user_token || strlen(user_token) == 0) {
+        obs_log(LOG_INFO, "No user token found in the cache");
+        return NULL;
+    }
+
+    obs_log(LOG_INFO, "User token found in the cache: %s", user_token);
+
+    token_t *token = bzalloc(sizeof(token_t));
+    token->value   = user_token;
+
+    return token;
 }
