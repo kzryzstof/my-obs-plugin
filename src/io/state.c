@@ -305,7 +305,7 @@ xbox_identity_t *state_get_xbox_identity(void) {
         return NULL;
     }
 
-    long xbox_token_expiry = obs_data_get_int(g_state, XBOX_TOKEN_EXPIRY);
+    int64_t xbox_token_expiry = (int64_t)obs_data_get_int(g_state, XBOX_TOKEN_EXPIRY);
 
     if (xbox_token_expiry == 0) {
         obs_log(LOG_INFO, "No xbox token expiry found in the cache");

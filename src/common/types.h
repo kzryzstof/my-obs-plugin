@@ -1,6 +1,7 @@
 #pragma once
 
 #include <openssl/evp.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,7 +22,7 @@ typedef struct device {
 typedef struct token {
     const char *value;
     /* unix timestamp */
-    long        expires;
+    int64_t     expires;
 } token_t;
 
 typedef struct xbox_live_authenticate_result {
