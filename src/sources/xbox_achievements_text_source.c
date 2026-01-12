@@ -133,6 +133,10 @@ static bool on_sign_out_clicked(obs_properties_t *props, obs_property_t *propert
     return true;
 }
 
+static void on_xbox_sign_in_completed() {
+    refresh_page();
+}
+
 /**
  * Called when the Sign-in button is called.
  *
@@ -154,7 +158,7 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
 
     //  TODO Support a callback for a refresh!
 
-    if (!xbox_live_get_authenticate(device)) {
+    if (!xbox_live_get_authenticate(device, &on_xbox_sign_in_completed)) {
         obs_log(LOG_WARNING, "Xbox sign-in failed");
         return false;
     }

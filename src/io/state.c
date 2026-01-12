@@ -8,7 +8,7 @@
 #include "crypto/crypto.h"
 #include "util/uuid.h"
 
-#define PERSIST_FILE "state.json"
+#define PERSIST_FILE "achievements-tracker-state.json"
 
 #define USER_TOKEN "user_token"
 
@@ -102,8 +102,10 @@ void state_clear(void) {
     /*obs_data_set_string(g_state, DEVICE_KEYS, "");*/
 
     obs_data_set_string(g_state, DEVICE_TOKEN, "");
-
-    /* Immediately save the state to disk */
+    obs_data_set_string(g_state, XBOX_IDENTITY_GTG, "");
+    obs_data_set_string(g_state, XBOX_IDENTITY_ID, "");
+    obs_data_set_string(g_state, XBOX_TOKEN, "");
+    obs_data_set_string(g_state, XBOX_TOKEN_EXPIRY, "");
     save_state(g_state);
 }
 
@@ -112,11 +114,8 @@ static const char *create_device_uuid() {
     char new_device_uuid[37];
     uuid_get_random(new_device_uuid);
 
-    /* Immediately save the state to disk */
     obs_data_set_string(g_state, DEVICE_UUID, new_device_uuid);
     save_state(g_state);
-
-    obs_log(LOG_INFO, "New device UUID saved %s", new_device_uuid);
 
     /* Retrieves it from the state */
     return obs_data_get_string(g_state, DEVICE_UUID);
@@ -127,11 +126,8 @@ static const char *create_device_serial_number() {
     char new_device_serial_number[37];
     uuid_get_random(new_device_serial_number);
 
-    /* Immediately save the state to disk */
     obs_data_set_string(g_state, DEVICE_SERIAL_NUMBER, new_device_serial_number);
     save_state(g_state);
-
-    obs_log(LOG_INFO, "New device serial number saved %s", new_device_serial_number);
 
     /* Retrieves it from the state */
     return obs_data_get_string(g_state, DEVICE_SERIAL_NUMBER);
@@ -143,13 +139,8 @@ static const char *create_device_keys() {
 
     char *serialized_keys = crypto_to_string(device_key, true);
 
-    obs_log(LOG_INFO, "Saving device keys: %s", serialized_keys);
-
-    /* Immediately save the state to disk */
     obs_data_set_string(g_state, DEVICE_KEYS, serialized_keys);
     save_state(g_state);
-
-    obs_log(LOG_INFO, "New device keys saved");
 
     bfree(serialized_keys);
     EVP_PKEY_free(device_key);
@@ -181,14 +172,10 @@ device_t *state_get_device(void) {
         device_keys = NULL;
     }
 
-    obs_log(LOG_INFO, "Device UUID: %s", device_uuid);
-
     if (!device_keys || strlen(device_keys) == 0) {
         obs_log(LOG_INFO, "No device keys found. Creating new one pair");
         device_keys = create_device_keys();
     }
-
-    obs_log(LOG_INFO, "Device keys: %s", device_keys);
 
     /* Retrieves the keys from the serialized string */
     EVP_PKEY *device_evp_pkeys = crypto_from_string(device_keys, true);
@@ -207,7 +194,6 @@ device_t *state_get_device(void) {
 
 void state_set_device_token(const token_t *device_token) {
     obs_data_set_string(g_state, DEVICE_TOKEN, device_token->value);
-    obs_log(LOG_INFO, "Device token saved %s", device_token->value);
     save_state(g_state);
 }
 
@@ -220,8 +206,6 @@ token_t *state_get_device_token(void) {
         return NULL;
     }
 
-    obs_log(LOG_INFO, "Device token found in the cache: %s", device_token);
-
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = device_token;
 
@@ -230,7 +214,6 @@ token_t *state_get_device_token(void) {
 
 void state_set_sisu_token(const token_t *sisu_token) {
     obs_data_set_string(g_state, SISU_TOKEN, sisu_token->value);
-    obs_log(LOG_INFO, "Sisu token saved %s", sisu_token->value);
     save_state(g_state);
 }
 
@@ -243,8 +226,6 @@ token_t *state_get_sisu_token(void) {
         return NULL;
     }
 
-    obs_log(LOG_INFO, "Sisu token found in the cache: %s", sisu_token);
-
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = sisu_token;
 
@@ -253,7 +234,6 @@ token_t *state_get_sisu_token(void) {
 
 void state_set_user_token(const token_t *user_token) {
     obs_data_set_string(g_state, USER_TOKEN, user_token->value);
-    obs_log(LOG_INFO, "User token saved %s", user_token->value);
     save_state(g_state);
 }
 
@@ -265,8 +245,6 @@ token_t *state_get_user_token(void) {
         obs_log(LOG_INFO, "No user token found in the cache");
         return NULL;
     }
-
-    obs_log(LOG_INFO, "User token found in the cache: %s", user_token);
 
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = user_token;
