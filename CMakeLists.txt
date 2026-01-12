@@ -169,6 +169,7 @@ target_sources(
     src/io/state.c
     src/encoding/base64.c
     src/util/uuid.c
+    src/time/time.c
 )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
@@ -191,6 +192,7 @@ if(BUILD_TESTING)
     ${unity_SOURCE_DIR}/src/unity.c
     src/encoding/base64.c
     src/util/uuid.c
+    src/time/time.c
     test/stubs/bmem_stub.c
   )
 
@@ -249,6 +251,7 @@ if(BUILD_TESTING)
     src/encoding/base64.c
     src/net/json/json.c
     src/util/uuid.c
+    src/time/time.c
     test/stubs/bmem_stub.c
   )
 
@@ -293,6 +296,38 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # Note: We use bmem_stub.c instead of linking OBS::libobs to avoid
-  # heavy runtime dependencies (FFmpeg, etc.) for simple unit tests.
+  # ------------------------------
+  # test_time
+  # ------------------------------
+  add_executable(test_time test/test_time.c ${unity_SOURCE_DIR}/src/unity.c src/time/time.c test/stubs/bmem_stub.c)
+
+  target_include_directories(
+    test_time
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_time PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_time PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_time PRIVATE OpenSSL::SSL)
+    endif()
+
+    # Ensure headers are available even if the imported targets don't propagate include dirs.
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_time PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_time PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
 endif()
