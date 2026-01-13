@@ -40,6 +40,21 @@ void xbox_monitoring_stop(void);
  */
 bool xbox_monitoring_is_active(void);
 
+/**
+ * Start subscribing to Xbox Live RTA notifications
+ * Sends the subscription message over the WebSocket connection
+ * @return true if subscription request was sent, false otherwise
+ */
+bool xbox_subscribe();
+
+/**
+ * Stop subscribing to Xbox Live RTA notifications
+ * Sends the unsubscribe message over the WebSocket connection
+ * @param subscription_id The subscription ID returned from the subscribe response
+ * @return true if unsubscribe request was sent, false otherwise
+ */
+bool xbox_unsubscribe(const char *subscription_id);
+
 #ifdef __cplusplus
 }
 #endif

@@ -174,6 +174,7 @@ static void on_xbox_monitoring_message_received(const char *message) {
 static void on_xbox_monitoring_connection_status_changed(bool connected, const char *error_message) {
     if (connected) {
         obs_log(LOG_WARNING, "Connected to Real-Time Activity endpoint");
+        xbox_subscribe();
     } else {
         obs_log(LOG_WARNING, error_message);
     }
