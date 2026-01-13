@@ -156,8 +156,6 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
 
     device_t *device = state_get_device();
 
-    //  TODO Support a callback for a refresh!
-
     if (!xbox_live_get_authenticate(device, &on_xbox_sign_in_completed)) {
         obs_log(LOG_WARNING, "Xbox sign-in failed");
         return false;
