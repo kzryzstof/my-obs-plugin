@@ -1,8 +1,13 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+bool xbox_fetch_gamerscore(int64_t *out_gamerscore);
 
 void get_presence(void);
 

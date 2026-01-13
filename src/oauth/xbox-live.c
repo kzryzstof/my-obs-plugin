@@ -230,6 +230,7 @@ static void retrieve_sisu_token(authentication_ctx_t *ctx) {
     xbox_identity_t *identity = bzalloc(sizeof(xbox_identity_t));
     identity->gamertag        = gtg;
     identity->xid             = xid;
+    identity->uhs             = uhs;
     identity->token           = xbox_token;
 
     /*

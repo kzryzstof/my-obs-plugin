@@ -1,10 +1,102 @@
-#include "client.h"
+#include "xbox_client.h"
 
 #include <obs-module.h>
 #include <diagnostics/log.h>
 
 #include "io/state.h"
 #include "net/http/http.h"
+#include "net/json/json.h"
+
+#define XBOX_PROFILE_SETTINGS_ENDPOINT_FMT "https://profile.xboxlive.com/users/batch/profile/settings"
+#define XBOX_PROFILE_CONTRACT_VERSION      "2"
+#define GAMERSCORE_SETTING                 "Gamerscore"
+
+/*
+ *
+ */
+bool xbox_fetch_gamerscore(int64_t *out_gamerscore) {
+    if (!out_gamerscore) {
+        return false;
+    }
+
+    /*
+     * Retrieves the user's xbox identity
+     */
+    xbox_identity_t *identity = state_get_xbox_identity();
+
+    if (!identity) {
+        return false;
+    }
+
+    bool  result          = false;
+    char *json            = NULL;
+    char *gamerscore_text = NULL;
+    char *end             = NULL;
+
+    /*
+     * Creates the request
+     */
+    char json_body[4096];
+    snprintf(json_body,
+             sizeof(json_body),
+             "{\"userIds\":[\"%s\"],\"settings\":[\"%s\"]}",
+             identity->xid,
+             GAMERSCORE_SETTING);
+
+    obs_log(LOG_INFO, "Body: %s", json_body);
+
+    char headers[4096];
+    snprintf(headers,
+             sizeof(headers),
+             "Authorization: XBL3.0 x=%s;%s\r\n"
+             "x-xbl-contract-version: %s\r\n",
+             identity->uhs,
+             identity->token->value,
+             XBOX_PROFILE_CONTRACT_VERSION);
+
+    obs_log(LOG_INFO, "Headers: %s", headers);
+
+    /*
+     * Sends the request
+     */
+    long http_code = 0;
+    json           = http_post(XBOX_PROFILE_SETTINGS_ENDPOINT_FMT, json_body, headers, &http_code);
+
+    if (http_code < 200 || http_code >= 300) {
+        obs_log(LOG_ERROR, "Failed to fetch gamerscore: received status code %d", http_code);
+        goto cleanup;
+    }
+
+    if (!json) {
+        obs_log(LOG_ERROR, "Failed to fetch gamerscore: received no response");
+        goto cleanup;
+    }
+
+    /*
+     * Extracts the gamerscore from the response
+     */
+    gamerscore_text = json_read_string(json, "value");
+
+    if (!gamerscore_text) {
+        obs_log(LOG_ERROR, "Failed to fetch gamerscore: unable to read the value");
+        goto cleanup;
+    }
+
+    long long gamerscore = strtoll(gamerscore_text, &end, 10);
+
+    result = end && end != gamerscore_text;
+
+    if (result) {
+        *out_gamerscore = (int64_t)gamerscore;
+    }
+
+cleanup:
+    FREE(json);
+    FREE(gamerscore_text);
+    /*FREE(end);*/
+
+    return result;
+}
 
 void get_presence(void) {
     /* TODO: implement presence retrieval. */

@@ -7,7 +7,7 @@
 #include "io/state.h"
 #include "oauth/xbox-live.h"
 #include "crypto/crypto.h"
-#include "xbox/client.h"
+#include "xbox/xbox_client.h"
 
 // Store the source reference somewhere accessible
 static obs_source_t *g_xbox_achievements_text_src = NULL;
@@ -182,11 +182,19 @@ obs_properties_t *xbox_achievements_get_properties(void *data) {
     if (xbox_identity != NULL) {
         char status[4096];
         snprintf(status, 4096, "Signed in as %s", xbox_identity->gamertag);
-        obs_properties_add_text(p, "status_info", status, OBS_TEXT_INFO);
-        obs_properties_add_button(p, "sign-out-xbox", "Sign out from Xbox", &on_sign_out_clicked);
+
+        int64_t gamerscore = 0;
+        xbox_fetch_gamerscore(&gamerscore);
+
+        char gamerscore_text[4096];
+        snprintf(gamerscore_text, 4096, "Gamerscore %lld", gamerscore);
+
+        obs_properties_add_text(p, "connected_status_info", status, OBS_TEXT_INFO);
+        obs_properties_add_text(p, "gamerscore_info", gamerscore_text, OBS_TEXT_INFO);
+        obs_properties_add_button(p, "sign_out_xbox", "Sign out from Xbox", &on_sign_out_clicked);
     } else {
-        obs_properties_add_text(p, "status_info", "You are not connected.", OBS_TEXT_INFO);
-        obs_properties_add_button(p, "sign-in-xbox", "Sign in with Xbox", &on_sign_in_xbox_clicked);
+        obs_properties_add_text(p, "disconnected_status_info", "You are not connected.", OBS_TEXT_INFO);
+        obs_properties_add_button(p, "sign_in_xbox", "Sign in with Xbox", &on_sign_in_xbox_clicked);
     }
 
     return p;

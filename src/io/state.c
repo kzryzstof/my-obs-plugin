@@ -21,6 +21,7 @@
 
 #define XBOX_IDENTITY_GTG "xbox_gamertag"
 #define XBOX_IDENTITY_ID "xbox_id"
+#define XBOX_IDENTITY_UHS "xbox_uhs"
 #define XBOX_TOKEN "xbox_token"
 #define XBOX_TOKEN_EXPIRY "xbox_token_expiry"
 
@@ -53,6 +54,8 @@ static obs_data_t *load_state(void) {
 
     if (!path)
         return NULL;
+
+    obs_log(LOG_INFO, "loading state from %s", path);
 
     obs_data_t *data = obs_data_create_from_json_file(path);
     bfree(path);
@@ -255,6 +258,7 @@ token_t *state_get_user_token(void) {
 void state_set_xbox_identity(const xbox_identity_t *xbox_identity) {
     obs_data_set_string(g_state, XBOX_IDENTITY_GTG, xbox_identity->gamertag);
     obs_data_set_string(g_state, XBOX_IDENTITY_ID, xbox_identity->xid);
+    obs_data_set_string(g_state, XBOX_IDENTITY_UHS, xbox_identity->uhs);
     obs_data_set_string(g_state, XBOX_TOKEN, xbox_identity->token->value);
     obs_data_set_int(g_state, XBOX_TOKEN_EXPIRY, xbox_identity->token->expires);
     save_state(g_state);
@@ -273,6 +277,13 @@ xbox_identity_t *state_get_xbox_identity(void) {
 
     if (!xid || strlen(xid) == 0) {
         obs_log(LOG_INFO, "No user ID found in the cache");
+        return NULL;
+    }
+
+    const char *uhs = obs_data_get_string(g_state, XBOX_IDENTITY_UHS);
+
+    if (!uhs || strlen(uhs) == 0) {
+        obs_log(LOG_INFO, "No user hash found in the cache");
         return NULL;
     }
 
@@ -299,6 +310,7 @@ xbox_identity_t *state_get_xbox_identity(void) {
     xbox_identity_t *identity = bzalloc(sizeof(xbox_identity_t));
     identity->gamertag        = gtg;
     identity->xid             = xid;
+    identity->uhs             = uhs;
     identity->token           = token;
 
     return identity;

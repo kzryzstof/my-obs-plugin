@@ -38,6 +38,7 @@ typedef struct xbox_live_authenticate_result {
 typedef struct xbox_identity {
     const char    *gamertag;
     const char    *xid;
+    const char    *uhs;
     const token_t *token;
 } xbox_identity_t;
 

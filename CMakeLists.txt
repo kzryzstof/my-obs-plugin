@@ -165,7 +165,7 @@ target_sources(
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
-    src/xbox/client.c
+    src/xbox/xbox_client.c
     src/io/state.c
     src/encoding/base64.c
     src/util/uuid.c
