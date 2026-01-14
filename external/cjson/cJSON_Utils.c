@@ -23,18 +23,15 @@
  * ------------------------------
  */
 
-static int is_array(const cJSON *item)
-{
+static int is_array(const cJSON *item) {
     return item && ((item->type & 0xFF) == cJSON_Array);
 }
 
-static int is_object(const cJSON *item)
-{
+static int is_object(const cJSON *item) {
     return item && ((item->type & 0xFF) == cJSON_Object);
 }
 
-static int token_equals(const char *a, size_t a_len, const char *b, int case_sensitive)
-{
+static int token_equals(const char *a, size_t a_len, const char *b, int case_sensitive) {
     if (!a || !b)
         return 0;
 
@@ -55,8 +52,7 @@ static int token_equals(const char *a, size_t a_len, const char *b, int case_sen
     return 1;
 }
 
-static int decode_pointer_token(const char *in, size_t in_len, char *out, size_t out_cap, size_t *out_len)
-{
+static int decode_pointer_token(const char *in, size_t in_len, char *out, size_t out_cap, size_t *out_len) {
     /* JSON Pointer decoding: ~1 -> /, ~0 -> ~ */
     if (!out || out_cap == 0)
         return 0;
@@ -68,9 +64,12 @@ static int decode_pointer_token(const char *in, size_t in_len, char *out, size_t
             if (i + 1 >= in_len)
                 return 0;
             char n = in[i + 1];
-            if (n == '0') c = '~';
-            else if (n == '1') c = '/';
-            else return 0;
+            if (n == '0')
+                c = '~';
+            else if (n == '1')
+                c = '/';
+            else
+                return 0;
             i++;
         }
         if (o + 1 >= out_cap)
@@ -84,8 +83,7 @@ static int decode_pointer_token(const char *in, size_t in_len, char *out, size_t
     return 1;
 }
 
-static cJSON *get_object_child_by_token(cJSON *object, const char *token, size_t token_len, int case_sensitive)
-{
+static cJSON *get_object_child_by_token(cJSON *object, const char *token, size_t token_len, int case_sensitive) {
     if (!is_object(object))
         return NULL;
 
@@ -97,8 +95,7 @@ static cJSON *get_object_child_by_token(cJSON *object, const char *token, size_t
     return NULL;
 }
 
-static int parse_array_index(const char *token, size_t token_len, int *out_index)
-{
+static int parse_array_index(const char *token, size_t token_len, int *out_index) {
     if (!out_index || !token || token_len == 0)
         return 0;
 
@@ -118,15 +115,13 @@ static int parse_array_index(const char *token, size_t token_len, int *out_index
     return 1;
 }
 
-static cJSON *get_array_child_by_index(cJSON *array, int index)
-{
+static cJSON *get_array_child_by_index(cJSON *array, int index) {
     if (!is_array(array) || index < 0)
         return NULL;
     return cJSON_GetArrayItem(array, index);
 }
 
-static cJSON *get_pointer_impl(cJSON *root, const char *pointer, int case_sensitive)
-{
+static cJSON *get_pointer_impl(cJSON *root, const char *pointer, int case_sensitive) {
     if (!root || !pointer)
         return NULL;
 
@@ -138,8 +133,8 @@ static cJSON *get_pointer_impl(cJSON *root, const char *pointer, int case_sensit
     if (pointer[0] != '/')
         return NULL;
 
-    cJSON *current = root;
-    const char *p = pointer;
+    cJSON      *current = root;
+    const char *p       = pointer;
 
     while (*p) {
         /* p points at '/' */
@@ -153,7 +148,7 @@ static cJSON *get_pointer_impl(cJSON *root, const char *pointer, int case_sensit
         size_t token_len = (size_t)(p - token_start);
 
         /* decode token into a scratch buffer */
-        char decoded[256];
+        char   decoded[256];
         size_t decoded_len = 0;
         if (token_len >= sizeof(decoded))
             return NULL;
@@ -180,13 +175,11 @@ static cJSON *get_pointer_impl(cJSON *root, const char *pointer, int case_sensit
     return current;
 }
 
-cJSON *cJSONUtils_GetPointer(cJSON *object, const char *pointer)
-{
+cJSON *cJSONUtils_GetPointer(cJSON *object, const char *pointer) {
     return get_pointer_impl(object, pointer, 0);
 }
 
-const cJSON *cJSONUtils_GetPointerCaseSensitive(const cJSON *object, const char *pointer)
-{
+const cJSON *cJSONUtils_GetPointerCaseSensitive(const cJSON *object, const char *pointer) {
     return get_pointer_impl((cJSON *)object, pointer, 1);
 }
 
@@ -195,15 +188,13 @@ const cJSON *cJSONUtils_GetPointerCaseSensitive(const cJSON *object, const char 
  * ------------------------------
  */
 
-cJSON *cJSONUtils_ApplyPatches(cJSON *object, const cJSON *patches)
-{
+cJSON *cJSONUtils_ApplyPatches(cJSON *object, const cJSON *patches) {
     (void)object;
     (void)patches;
     return NULL;
 }
 
-cJSON *cJSONUtils_GeneratePatches(const cJSON *from, const cJSON *to)
-{
+cJSON *cJSONUtils_GeneratePatches(const cJSON *from, const cJSON *to) {
     (void)from;
     (void)to;
     return NULL;

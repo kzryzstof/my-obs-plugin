@@ -52,8 +52,8 @@ typedef struct cJSON {
 
     int type;
 
-    char *valuestring;
-    int valueint;
+    char  *valuestring;
+    int    valueint;
     double valuedouble;
 
     char *string;
@@ -75,11 +75,11 @@ void cJSON_Delete(cJSON *item);
 cJSON *cJSON_Parse(const char *value);
 cJSON *cJSON_ParseWithOpts(const char *value, const char **return_parse_end, int require_null_terminated);
 
-int cJSON_GetArraySize(const cJSON *array);
+int    cJSON_GetArraySize(const cJSON *array);
 cJSON *cJSON_GetArrayItem(const cJSON *array, int index);
 
-cJSON *cJSON_GetObjectItem(const cJSON * const object, const char * const string);
-cJSON *cJSON_GetObjectItemCaseSensitive(const cJSON * const object, const char * const string);
+cJSON *cJSON_GetObjectItem(const cJSON *const object, const char *const string);
+cJSON *cJSON_GetObjectItemCaseSensitive(const cJSON *const object, const char *const string);
 
 cJSON *cJSON_CreateNull(void);
 cJSON *cJSON_CreateTrue(void);
@@ -95,17 +95,17 @@ void cJSON_AddItemToArray(cJSON *array, cJSON *item);
 void cJSON_AddItemToObject(cJSON *object, const char *string, cJSON *item);
 void cJSON_AddItemToObjectCS(cJSON *object, const char *string, cJSON *item);
 
-cJSON *cJSON_DetachItemViaPointer(cJSON *parent, cJSON * const item);
+cJSON *cJSON_DetachItemViaPointer(cJSON *parent, cJSON *const item);
 cJSON *cJSON_DetachItemFromArray(cJSON *array, int which);
-void cJSON_DeleteItemFromArray(cJSON *array, int which);
+void   cJSON_DeleteItemFromArray(cJSON *array, int which);
 
 cJSON *cJSON_DetachItemFromObject(cJSON *object, const char *string);
 cJSON *cJSON_DetachItemFromObjectCaseSensitive(cJSON *object, const char *string);
-void cJSON_DeleteItemFromObject(cJSON *object, const char *string);
-void cJSON_DeleteItemFromObjectCaseSensitive(cJSON *object, const char *string);
+void   cJSON_DeleteItemFromObject(cJSON *object, const char *string);
+void   cJSON_DeleteItemFromObjectCaseSensitive(cJSON *object, const char *string);
 
 void cJSON_InsertItemInArray(cJSON *array, int which, cJSON *newitem);
-void cJSON_ReplaceItemViaPointer(cJSON * const parent, cJSON * const item, cJSON *replacement);
+void cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON *const item, cJSON *replacement);
 void cJSON_ReplaceItemInArray(cJSON *array, int which, cJSON *newitem);
 void cJSON_ReplaceItemInObject(cJSON *object, const char *string, cJSON *newitem);
 void cJSON_ReplaceItemInObjectCaseSensitive(cJSON *object, const char *string, cJSON *newitem);

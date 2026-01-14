@@ -1,4 +1,4 @@
-# Vendored cJSON
+#Vendored cJSON
 
 This folder contains a vendored copy of the `cJSON` library and the optional `cJSON_Utils` helpers.
 
@@ -16,4 +16,3 @@ Then rebuild.
 ## Notes
 The current vendored `cJSON.c`/`cJSON_Utils.c` are intentionally minimal implementations to satisfy compilation and linking needs.
 If you start using more advanced features, update with the full upstream sources.
-

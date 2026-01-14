@@ -11,8 +11,7 @@
 #define cJSON_Utils__h
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "cJSON.h"
@@ -27,7 +26,7 @@ extern "C"
  * Returns a pointer to an existing node within `object` (no allocation),
  * or NULL if not found / invalid.
  */
-cJSON *cJSONUtils_GetPointer(cJSON *object, const char *pointer);
+cJSON       *cJSONUtils_GetPointer(cJSON *object, const char *pointer);
 const cJSON *cJSONUtils_GetPointerCaseSensitive(const cJSON *object, const char *pointer);
 
 /*
