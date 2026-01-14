@@ -262,6 +262,11 @@ cmake --build build_macos_dev --target test_time --config Debug
 
 [Your License Here]
 
+## References
+
+https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/gamerpic/atoc-reference-gamerpic
+GET https://titlehub.xboxlive.com/users/xuid({xuid})/titles/titleid({titleId})/decoration/Image
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
@@ -269,3 +274,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 ## Support
 
 For issues, questions, or feature requests, please visit the [GitHub Issues](https://github.com/your-org/achievements-tracker-plugin/issues) page.
+

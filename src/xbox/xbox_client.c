@@ -7,14 +7,88 @@
 #include "net/http/http.h"
 #include "net/json/json.h"
 
+#include <cJSON.h>
+#include <cJSON_Utils.h>
+
 #define XBOX_PROFILE_SETTINGS_ENDPOINT_FMT "https://profile.xboxlive.com/users/batch/profile/settings"
 #define XBOX_PROFILE_CONTRACT_VERSION      "2"
 #define GAMERSCORE_SETTING                 "Gamerscore"
+#define XBOX_TITLE_HUB                     "https://titlehub.xboxlive.com/users/xuid(%s)/titles/titleId(%s)/decoration/image"
+
+char* xbox_get_game_cover(const game_t *game) {
+
+    char *display_image_url = NULL;
+
+    if (!game) {
+        return display_image_url;
+    }
+
+    /*
+     * Retrieves the user's xbox identity
+     */
+    xbox_identity_t *identity = state_get_xbox_identity();
+
+    if (!identity) {
+        return display_image_url;
+    }
+
+    char display_request[4096];
+    snprintf(display_request, sizeof(display_request), XBOX_TITLE_HUB, identity->xid, game->id);
+
+    obs_log(LOG_DEBUG, "Display image URL: %s", display_request);
+
+    char headers[4096];
+    snprintf(headers,
+             sizeof(headers),
+             "Authorization: XBL3.0 x=%s;%s\r\n"
+             "x-xbl-contract-version: %s\r\n"
+             "Accept-Language: en-CA\r\n",          //  Must be present!
+             identity->uhs,
+             identity->token->value,
+             XBOX_PROFILE_CONTRACT_VERSION);
+
+    obs_log(LOG_DEBUG, "Headers: %s", headers);
+
+    /*
+     * Sends the request
+     */
+    long  http_code = 0;
+    char *response  = http_get(display_request, headers, NULL, &http_code);
+
+    if (http_code < 200 || http_code >= 300) {
+        obs_log(LOG_ERROR, "Failed to fetch title image: received status code %d", http_code);
+        goto cleanup;
+    }
+
+    if (!response) {
+        obs_log(LOG_ERROR, "Failed to fetch title image: received no response");
+        goto cleanup;
+    }
+
+    obs_log(LOG_WARNING, "Response: %s", response);
+
+    cJSON *presence_json = cJSON_Parse(response);
+
+    cJSON *display_image = cJSONUtils_GetPointer(presence_json, "titles/0/displayImage");
+
+    if (!display_image) {
+        obs_log(LOG_ERROR, "Failed to fetch title image: displayName property not found");
+        goto cleanup;
+    }
+
+    display_image_url = bstrdup_n(display_image->valuestring, strlen(display_image->valuestring));
+
+cleanup:
+    FREE(response);
+
+    return display_image_url;
+}
 
 /*
  *  https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/profilev2/uri-usersbatchprofilesettingspost
  */
 bool xbox_fetch_gamerscore(int64_t *out_gamerscore) {
+
     if (!out_gamerscore) {
         return false;
     }

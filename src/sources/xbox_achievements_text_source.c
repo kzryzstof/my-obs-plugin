@@ -170,6 +170,8 @@ static void on_xbox_game_played(const game_t *game) {
     snprintf(text, 4096, "Playing game %s (%s)", game->title, game->id);
     obs_log(LOG_WARNING, text);
 
+    xbox_get_game_cover(game);
+
     refresh_page();
 }
 

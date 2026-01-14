@@ -57,35 +57,36 @@ static void progress_buffer(const char *buffer, on_xbox_game_played_t on_xbox_ga
 
     obs_log(LOG_WARNING, "New buffer received %s", buffer);
 
-    /* Parse the JSON */
+    /* Parse the buffer [X,X,X] */
     cJSON *root = cJSON_Parse(buffer);
 
     if (!root) {
         return;
     }
 
-    cJSON *inner = cJSON_GetArrayItem(root, 2);
+    /* Retrieves the presence message at index 2 */
+    cJSON *presence_item = cJSON_GetArrayItem(root, 2);
 
-    if (!inner) {
-        obs_log(LOG_WARNING, "No inner array found");
+    if (!presence_item) {
+        obs_log(LOG_WARNING, "No presence item found");
         cJSON_Delete(root);
         return;
     }
 
-    char *presence_message = cJSON_PrintUnformatted(inner);
+    char *presence_message = cJSON_PrintUnformatted(presence_item);
 
     if (strlen(presence_message) < 5) {
         FREE(g_current_game);
-        obs_log(LOG_WARNING, "No game is played");
+        obs_log(LOG_INFO, "No game is played");
         return;
     }
 
-    obs_log(LOG_WARNING, "Presence message is %s", presence_message);
+    obs_log(LOG_DEBUG, "Presence message is %s", presence_message);
 
     cJSON *presence_json = cJSON_Parse(presence_message);
 
-    char current_game_title[512];
-    char current_game_id[512];
+    char current_game_title[128];
+    char current_game_id[128];
 
     for (int detail_index = 0; detail_index < 3; detail_index++) {
 
@@ -97,17 +98,17 @@ static void progress_buffer(const char *buffer, on_xbox_game_played_t on_xbox_ga
 
         if (!is_game_value) {
             /* There is nothing more */
-            obs_log(LOG_WARNING, "No more game at %d", detail_index);
+            obs_log(LOG_DEBUG, "No more game at %d", detail_index);
             break;
         }
 
         if (is_game_value->type == cJSON_False) {
             /* This is not a game: most likely the xbox home */
-            obs_log(LOG_WARNING, "No game at %d. Is game = %s", detail_index, is_game_value->valuestring);
+            obs_log(LOG_DEBUG, "No game at %d. Is game = %s", detail_index, is_game_value->valuestring);
             continue;
         }
 
-        obs_log(LOG_WARNING, "Game at %d. Is game = %s", detail_index, is_game_value->valuestring);
+        obs_log(LOG_DEBUG, "Game at %d. Is game = %s", detail_index, is_game_value->valuestring);
 
         /* Retrieve the game title and its ID */
         char game_title_key[512];
@@ -115,14 +116,14 @@ static void progress_buffer(const char *buffer, on_xbox_game_played_t on_xbox_ga
 
         cJSON *game_title_value = cJSONUtils_GetPointer(presence_json, game_title_key);
 
-        obs_log(LOG_WARNING, "Game title: %s %s", game_title_value->string, game_title_value->valuestring);
+        obs_log(LOG_DEBUG, "Game title: %s %s", game_title_value->string, game_title_value->valuestring);
 
         char game_id_key[512];
         snprintf(game_id_key, sizeof(game_id_key), "/presenceDetails/%d/titleId", detail_index);
 
         cJSON *game_id_value = cJSONUtils_GetPointer(presence_json, game_id_key);
 
-        obs_log(LOG_WARNING, "Game ID: %s %s", game_id_value->string, game_id_value->valuestring);
+        obs_log(LOG_DEBUG, "Game ID: %s %s", game_id_value->string, game_id_value->valuestring);
 
         snprintf(current_game_title, sizeof(current_game_title), "%s", game_title_value->valuestring);
         snprintf(current_game_id, sizeof(current_game_id), "%s", game_id_value->valuestring);
@@ -130,11 +131,11 @@ static void progress_buffer(const char *buffer, on_xbox_game_played_t on_xbox_ga
 
     if (strlen(current_game_id) == 0) {
         FREE(g_current_game);
-        obs_log(LOG_WARNING, "No game found");
+        obs_log(LOG_DEBUG, "No game found");
         return;
     }
 
-    obs_log(LOG_WARNING, "Game is %s %s", current_game_title, current_game_id);
+    obs_log(LOG_INFO, "Game is %s (%s)", current_game_title, current_game_id);
 
     game_t *game = bzalloc(sizeof(game_t));
     game->id     = strdup(current_game_id);

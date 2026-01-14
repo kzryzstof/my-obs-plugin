@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <common/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +21,8 @@ char *xbox_fetch_achievements_json(long *out_http_code);
 /* Fetch user presence for the stored XUID. Returns JSON string (bfree) or NULL.
  */
 char *xbox_fetch_presence_json(long *out_http_code);
+
+char* xbox_get_game_cover(const game_t *game);
 
 #ifdef __cplusplus
 }
