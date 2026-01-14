@@ -1,8 +1,10 @@
 #include "sources/xbox_achievements_text_source.h"
 
 #include <graphics/graphics.h>
+#include <graphics/image-file.h>
 #include <obs-module.h>
 #include <diagnostics/log.h>
+#include <curl/curl.h>
 
 #include "io/state.h"
 #include "oauth/xbox-live.h"
@@ -19,7 +21,158 @@ struct xbox_achievements_text_src {
     obs_source_t *child_text;
     uint32_t      width;
     uint32_t      height;
+
+    /* Image support */
+    gs_texture_t *image_texture;
+    uint32_t      image_width;
+    uint32_t      image_height;
+    char         *image_url;
+    bool          image_needs_load;
 };
+
+/* -------------------------------------------------------------------------
+ * Image download helpers
+ * ------------------------------------------------------------------------- */
+
+struct image_download_buffer {
+    uint8_t *data;
+    size_t   size;
+    size_t   capacity;
+};
+
+static size_t image_download_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
+    struct image_download_buffer *buf = (struct image_download_buffer *)userdata;
+    size_t total = size * nmemb;
+
+    if (buf->size + total > buf->capacity) {
+        size_t new_cap = (buf->capacity == 0) ? 65536 : buf->capacity * 2;
+        while (new_cap < buf->size + total)
+            new_cap *= 2;
+        uint8_t *new_data = brealloc(buf->data, new_cap);
+        if (!new_data)
+            return 0;
+        buf->data = new_data;
+        buf->capacity = new_cap;
+    }
+
+    memcpy(buf->data + buf->size, ptr, total);
+    buf->size += total;
+    return total;
+}
+
+/**
+ * Downloads an image from a URL into memory.
+ * Caller must bfree(*out_data) when done.
+ * Returns true on success.
+ */
+static bool download_image_to_memory(const char *url, uint8_t **out_data, size_t *out_size) {
+    if (!url || !out_data || !out_size)
+        return false;
+
+    *out_data = NULL;
+    *out_size = 0;
+
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        obs_log(LOG_ERROR, "Failed to init curl for image download");
+        return false;
+    }
+
+    struct image_download_buffer buf = {0};
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, image_download_write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "OBS-Plugin/1.0");
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) {
+        obs_log(LOG_ERROR, "Image download failed: %s", curl_easy_strerror(res));
+        bfree(buf.data);
+        return false;
+    }
+
+    *out_data = buf.data;
+    *out_size = buf.size;
+    return true;
+}
+
+/**
+ * Loads an image from a URL and creates a texture.
+ * Must be called from the graphics thread (e.g., in video_render or via obs_enter_graphics).
+ */
+static void load_image_from_url(struct xbox_achievements_text_src *s) {
+    if (!s || !s->image_url || s->image_url[0] == '\0')
+        return;
+
+    /* Free existing texture */
+    if (s->image_texture) {
+        gs_texture_destroy(s->image_texture);
+        s->image_texture = NULL;
+    }
+    s->image_width = 0;
+    s->image_height = 0;
+
+    uint8_t *data = NULL;
+    size_t size = 0;
+
+    if (!download_image_to_memory(s->image_url, &data, &size)) {
+        obs_log(LOG_WARNING, "Failed to download image from: %s", s->image_url);
+        return;
+    }
+
+    /* Use OBS's gs_texture_create_from_file with a temp file, or decode manually.
+     * OBS doesn't have a direct "from memory" for arbitrary formats, so we use
+     * gs_create_texture_file_data which can decode PNG/JPEG from memory. */
+
+    /* Decode image using stb_image (OBS uses it internally).
+     * We'll write to a temp file and use gs_texture_create_from_file. */
+    char temp_path[512];
+    snprintf(temp_path, sizeof(temp_path), "%s/obs_plugin_temp_image.png", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp");
+
+    FILE *f = fopen(temp_path, "wb");
+    if (!f) {
+        obs_log(LOG_ERROR, "Failed to create temp file for image");
+        bfree(data);
+        return;
+    }
+    fwrite(data, 1, size, f);
+    fclose(f);
+    bfree(data);
+
+    /* Now load from file using OBS graphics */
+    obs_enter_graphics();
+    s->image_texture = gs_texture_create_from_file(temp_path);
+    if (s->image_texture) {
+        s->image_width = gs_texture_get_width(s->image_texture);
+        s->image_height = gs_texture_get_height(s->image_texture);
+        obs_log(LOG_INFO, "Loaded image %ux%u from %s", s->image_width, s->image_height, s->image_url);
+    } else {
+        obs_log(LOG_WARNING, "Failed to create texture from downloaded image");
+    }
+    obs_leave_graphics();
+
+    /* Clean up temp file */
+    remove(temp_path);
+
+    s->image_needs_load = false;
+}
+
+/**
+ * Sets a new image URL for the source. The image will be loaded on next render.
+ */
+static void set_image_url(struct xbox_achievements_text_src *s, const char *url) {
+    if (!s)
+        return;
+
+    bfree(s->image_url);
+    s->image_url = url ? bstrdup(url) : NULL;
+    s->image_needs_load = (url && url[0] != '\0');
+}
 
 static void text_src_update_child(struct xbox_achievements_text_src *s) {
     if (!s || !s->child_text)
@@ -66,6 +219,14 @@ void xbox_achievements_text_src_destroy(void *data) {
     if (s->child_text)
         obs_source_release(s->child_text);
 
+    /* Free image resources */
+    if (s->image_texture) {
+        obs_enter_graphics();
+        gs_texture_destroy(s->image_texture);
+        obs_leave_graphics();
+    }
+    bfree(s->image_url);
+
     bfree(s->text);
     bfree(s);
 }
@@ -82,22 +243,57 @@ void xbox_achievements_text_src_update(void *data, obs_data_t *settings) {
 
 uint32_t xbox_achievements_text_src_get_width(void *data) {
     struct xbox_achievements_text_src *s = data;
+    /* Use image width if available, otherwise default */
+    if (s->image_texture && s->image_width > 0)
+        return s->image_width;
     return s->width;
 }
 
 uint32_t xbox_achievements_text_src_get_height(void *data) {
     struct xbox_achievements_text_src *s = data;
+    /* Use image height if available, otherwise default */
+    if (s->image_texture && s->image_height > 0)
+        return s->image_height;
     return s->height;
 }
 
 void xbox_achievements_text_src_video_render(void *data, gs_effect_t *effect) {
-    UNUSED_PARAMETER(effect);
     struct xbox_achievements_text_src *s = data;
-    if (!s || !s->child_text)
+    if (!s)
         return;
 
+    /* Load image if needed (deferred load in graphics context) */
+    if (s->image_needs_load) {
+        load_image_from_url(s);
+    }
+
+    /* Render the image if we have a texture */
+    if (s->image_texture) {
+        /* Use the passed effect, or get the default if NULL */
+        gs_effect_t *eff = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
+
+        /* Only start our own effect loop if no effect is currently active.
+         * If an effect was passed in, it's already active - just set texture and draw. */
+        if (effect) {
+            /* Effect already active from caller - just set texture and draw */
+            gs_eparam_t *image_param = gs_effect_get_param_by_name(effect, "image");
+            if (image_param)
+                gs_effect_set_texture(image_param, s->image_texture);
+            gs_draw_sprite(s->image_texture, 0, s->image_width, s->image_height);
+        } else {
+            /* No effect passed - start our own loop */
+            gs_eparam_t *image_param = gs_effect_get_param_by_name(eff, "image");
+            gs_effect_set_texture(image_param, s->image_texture);
+            while (gs_effect_loop(eff, "Draw")) {
+                gs_draw_sprite(s->image_texture, 0, s->image_width, s->image_height);
+            }
+        }
+    }
+
     /* Let the child (Text FT2) render into our source */
-    obs_source_video_render(s->child_text);
+    if (s->child_text) {
+        obs_source_video_render(s->child_text);
+    }
 }
 
 static void refresh_page() {
@@ -170,7 +366,9 @@ static void on_xbox_game_played(const game_t *game) {
     snprintf(text, 4096, "Playing game %s (%s)", game->title, game->id);
     obs_log(LOG_WARNING, text);
 
-    xbox_get_game_cover(game);
+    const char *game_cover_url = xbox_get_game_cover(game);
+
+    xbox_achievements_text_source_set_image_url(game_cover_url);
 
     refresh_page();
 }
@@ -284,3 +482,17 @@ const struct obs_source_info *xbox_achievements_text_source_get(void) {
 void xbox_achievements_text_source_register(void) {
     obs_register_source(xbox_achievements_text_source_get());
 }
+
+void xbox_achievements_text_source_set_image_url(const char *url) {
+    if (!g_xbox_achievements_text_src)
+        return;
+
+    /* Get the private data from the source */
+    void *data = obs_obj_get_data(g_xbox_achievements_text_src);
+    if (!data)
+        return;
+
+    struct xbox_achievements_text_src *s = data;
+    set_image_url(s, url);
+}
+

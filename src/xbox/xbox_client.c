@@ -69,7 +69,7 @@ char* xbox_get_game_cover(const game_t *game) {
 
     cJSON *presence_json = cJSON_Parse(response);
 
-    cJSON *display_image = cJSONUtils_GetPointer(presence_json, "titles/0/displayImage");
+    cJSON *display_image = cJSONUtils_GetPointer(presence_json, "/titles/0/displayImage");
 
     if (!display_image) {
         obs_log(LOG_ERROR, "Failed to fetch title image: displayName property not found");
