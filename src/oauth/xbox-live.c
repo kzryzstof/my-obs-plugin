@@ -58,6 +58,7 @@ typedef struct authentication_ctx {
 
     /* Returned values */
     token_t *user_token;
+    token_t *refresh_token;
     token_t *device_token;
 
 } authentication_ctx_t;
@@ -407,6 +408,104 @@ cleanup:
 }
 
 /**
+ *
+ *
+ * @param ctx
+ * @return
+ */
+static void refresh_user_token(authentication_ctx_t *ctx) {
+
+    char *response_json       = NULL;
+    char *access_token_value  = NULL;
+    char *refresh_token_value = NULL;
+    long *token_expires_in    = NULL;
+
+    /*
+     * Creates the request.
+     */
+    char refresh_token_form_url_encoded[8192];
+    snprintf(refresh_token_form_url_encoded,
+             sizeof(refresh_token_form_url_encoded),
+             "client_id=%s&refresh_token=%s&grant_type=%s",
+             CLIENT_ID,
+             ctx->refresh_token->value,
+             GRANT_TYPE);
+
+    long http_code = 0;
+    response_json  = http_get(TOKEN_ENDPOINT, NULL, refresh_token_form_url_encoded, &http_code);
+
+    if (http_code < 200 || http_code > 300) {
+        ctx->result.error_message = "Unable to refresh the user token: server returned an error";
+        obs_log(LOG_ERROR, "Unable to refresh the user token: server returned an error. Received status %d", http_code);
+        goto cleanup;
+    }
+
+    if (!response_json) {
+        ctx->result.error_message = "Unable to refresh the user token: server returned no response";
+        obs_log(LOG_ERROR, ctx->result.error_message);
+        goto cleanup;
+    }
+
+    obs_log(LOG_WARNING, "Response received: %s", response_json);
+
+    access_token_value  = json_read_string(response_json, "access_token");
+    refresh_token_value = json_read_string(response_json, "refresh_token");
+    token_expires_in    = json_read_long(response_json, "expires_in");
+
+    if (!access_token_value) {
+        ctx->result.error_message = "Unable to refresh the user token: no access_token field found";
+        obs_log(LOG_ERROR, ctx->result.error_message);
+        goto cleanup;
+    }
+
+    if (!refresh_token_value) {
+        ctx->result.error_message = "Unable to refresh the user token: no refresh_token field found";
+        obs_log(LOG_ERROR, ctx->result.error_message);
+        goto cleanup;
+    }
+
+    if (!token_expires_in) {
+        ctx->result.error_message = "Unable to refresh the user token: no expires_in field found";
+        obs_log(LOG_ERROR, ctx->result.error_message);
+        goto cleanup;
+    }
+
+    /*
+     *  The token has been found and is saved in the context
+     */
+    token_t *user_token = (token_t *)bzalloc(sizeof(token_t));
+    user_token->value   = bstrdup_n(access_token_value, strlen(access_token_value));
+    user_token->expires = time(NULL) + *token_expires_in / 1000;
+
+    token_t *refresh_token = (token_t *)bzalloc(sizeof(token_t));
+    refresh_token->value   = bstrdup_n(refresh_token_value, strlen(refresh_token_value));
+
+    ctx->user_token = user_token;
+
+    /* And in the persistence */
+    state_set_user_token(user_token, refresh_token);
+
+    obs_log(LOG_INFO, "User & refresh token received");
+
+cleanup:
+    FREE(access_token_value);
+    FREE(refresh_token_value);
+    FREE(token_expires_in);
+    FREE(response_json);
+
+    /*
+     * Either complete the process if an error has been encountered or go to the next step
+     */
+    if (!ctx->user_token) {
+        if (ctx->on_completed) {
+            ctx->on_completed();
+        }
+    } else {
+        retrieve_device_token(ctx);
+    }
+}
+
+/**
  *  Waits for the user token to be available
  *
  * @param ctx
@@ -448,29 +547,42 @@ static void poll_for_user_token(authentication_ctx_t *ctx) {
                     interval);
         } else {
 
-            char *token = json_read_string(json, "access_token");
+            obs_log(LOG_WARNING, "Response received: %s", json);
 
-            if (token) {
+            char *access_token_value  = json_read_string(json, "access_token");
+            char *refresh_token_value = json_read_string(json, "refresh_token");
+            long *token_expires_in    = json_read_long(json, "expires_in");
+
+            if (access_token_value && refresh_token_value && token_expires_in) {
                 /*
                  *  The token has been found and is saved in the context
                  */
                 token_t *user_token = (token_t *)bzalloc(sizeof(token_t));
-                user_token->value   = bstrdup_n(token, strlen(token));
+                user_token->value   = bstrdup_n(access_token_value, strlen(access_token_value));
+                //user_token->expires = time(NULL) + *token_expires_in;
+                user_token->expires = time(NULL) + 30;
+
+                token_t *refresh_token = (token_t *)bzalloc(sizeof(token_t));
+                refresh_token->value   = bstrdup_n(refresh_token_value, strlen(refresh_token_value));
 
                 ctx->user_token = user_token;
 
                 /* And in the persistence */
-                state_set_user_token(user_token);
+                state_set_user_token(user_token, refresh_token);
 
-                obs_log(LOG_INFO, "User token received");
-                FREE(token);
+                obs_log(LOG_INFO, "User & refresh token received");
+                FREE(access_token_value);
+                FREE(refresh_token_value);
+                FREE(token_expires_in);
                 FREE(json);
                 break;
             }
 
             ctx->result.error_message = "Could not parse access_token from token response";
             obs_log(LOG_ERROR, ctx->result.error_message);
-            FREE(token);
+            FREE(access_token_value);
+            FREE(refresh_token_value);
+            FREE(token_expires_in);
         }
 
         FREE(json);
@@ -510,6 +622,15 @@ static void *start_authentication_flow(void *param) {
     if (user_token) {
         obs_log(LOG_INFO, "Using cached user token");
         ctx->user_token = user_token;
+        goto cleanup;
+    }
+
+    token_t *refresh_token = state_get_user_refresh_token();
+
+    if (refresh_token) {
+        obs_log(LOG_INFO, "Using refresh token");
+        ctx->refresh_token = refresh_token;
+        refresh_user_token(ctx);
         goto cleanup;
     }
 
@@ -570,7 +691,7 @@ static void *start_authentication_flow(void *param) {
         goto cleanup;
     }
 
-    interval = json_get_long_value(token_json, "interval");
+    interval = json_read_long(token_json, "interval");
 
     if (!interval) {
         ctx->result.error_message = "Unable to received a user token: could not parse the interval from token response";
@@ -578,7 +699,7 @@ static void *start_authentication_flow(void *param) {
         goto cleanup;
     }
 
-    expires_in = json_get_long_value(token_json, "expires_in");
+    expires_in = json_read_long(token_json, "expires_in");
 
     if (!expires_in) {
         ctx->result.error_message =
