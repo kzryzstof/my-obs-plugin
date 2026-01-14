@@ -31,6 +31,10 @@ typedef struct xbox_game_cover_source {
     bool          image_needs_load;
 } xbox_game_cover_source_t;
 
+//  --------------------------------------------------------------------------------------------------------------------
+//	Private functions
+//  --------------------------------------------------------------------------------------------------------------------
+
 /**
  * Loads an image from a URL and creates a texture.
  * Must be called from the graphics thread (e.g., in video_render or via obs_enter_graphics).
@@ -111,6 +115,24 @@ static void set_image_url(xbox_game_cover_source_t *s, const char *url) {
 }
 
 /**
+ * Sets the image URL for the Xbox game cover source.
+ *
+ * @param url
+ */
+static void source_set_image_url(const char *url) {
+    if (!g_xbox_game_cover_src)
+        return;
+
+    /* Get the private data from the source */
+    void *data = obs_obj_get_data(g_xbox_game_cover_src);
+    if (!data)
+        return;
+
+    xbox_game_cover_source_t *s = data;
+    set_image_url(s, url);
+}
+
+/**
  *
  * @param s
  */
@@ -127,143 +149,6 @@ static void text_src_update_child(xbox_game_cover_source_t *s) {
     obs_data_set_int(st, "valign", 0); /* top */
     obs_source_update(s->child_text, st);
     obs_data_release(st);
-}
-
-/**
- *
- * @param settings
- * @param source
- * @return
- */
-static void *xbox_game_cover_src_create(obs_data_t *settings, obs_source_t *source) {
-    g_xbox_game_cover_src = source;
-
-    xbox_game_cover_source_t *s = bzalloc(sizeof(*s));
-    s->source                   = source;
-
-    const char *t = obs_data_get_string(settings, "text");
-    s->text       = bstrdup(t ? t : "Hello from plugin");
-    s->width      = 800;
-    s->height     = 200;
-
-    /* Create built-in text source as a child */
-    obs_data_t *st = obs_data_create();
-    obs_data_set_string(st, "text", s->text);
-    s->child_text = obs_source_create_private("text_ft2_source", "child_text", st);
-    obs_data_release(st);
-
-    text_src_update_child(s);
-
-    return s;
-}
-
-static void xbox_game_cover_src_destroy(void *data) {
-    xbox_game_cover_source_t *s = data;
-
-    if (!s) {
-        return;
-    }
-
-    if (s->child_text) {
-        obs_source_release(s->child_text);
-    }
-
-    /* Free image resources */
-    if (s->image_texture) {
-        obs_enter_graphics();
-        gs_texture_destroy(s->image_texture);
-        obs_leave_graphics();
-    }
-
-    bfree(s->image_url);
-    bfree(s->text);
-    bfree(s);
-}
-
-/**
- *
- * @param data
- * @param settings
- */
-static void xbox_game_cover_src_update(void *data, obs_data_t *settings) {
-    xbox_game_cover_source_t *s = data;
-    const char               *t = obs_data_get_string(settings, "text");
-
-    bfree(s->text);
-    s->text = bstrdup(t ? t : "");
-
-    text_src_update_child(s);
-}
-
-/**
- * Returns the configured width of the source.
- *
- * @param data
- * @return
- */
-static uint32_t xbox_game_cover_src_get_width(void *data) {
-    const xbox_game_cover_source_t *s = data;
-    return s->width;
-}
-
-/**
- * Returns the configured height of the source.
- *
- * @param data
- * @return
- */
-static uint32_t xbox_game_cover_src_get_height(void *data) {
-    const xbox_game_cover_source_t *s = data;
-    return s->height;
-}
-
-/**
- * Draws the image.
- *
- * @param data
- * @param effect
- */
-static void xbox_game_cover_src_video_render(void *data, gs_effect_t *effect) {
-
-    xbox_game_cover_source_t *source = data;
-
-    if (!source) {
-        return;
-    }
-
-    /* Load image if needed (deferred load in graphics context) */
-    if (source->image_needs_load) {
-        load_image_from_url(source);
-    }
-
-    /* Render the image if we have a texture */
-    if (source->image_texture) {
-
-        /* Use the passed effect or get the default if NULL */
-        gs_effect_t *used_effect = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
-
-        /* Only start our own effect loop if no effect is currently active.
-         * If an effect was passed in, it's already active - just set texture and draw. */
-        if (effect) {
-            /* Effect already active from caller - just set texture and draw */
-            gs_eparam_t *image_param = gs_effect_get_param_by_name(effect, "image");
-            if (image_param)
-                gs_effect_set_texture(image_param, source->image_texture);
-            gs_draw_sprite(source->image_texture, 0, source->width, source->height);
-        } else {
-            /* No effect passed - start our own loop */
-            gs_eparam_t *image_param = gs_effect_get_param_by_name(used_effect, "image");
-            gs_effect_set_texture(image_param, source->image_texture);
-            while (gs_effect_loop(used_effect, "Draw")) {
-                gs_draw_sprite(source->image_texture, 0, source->width, source->height);
-            }
-        }
-    }
-
-    /* Let the child (Text FT2) render into our source */
-    if (source->child_text) {
-        obs_source_video_render(source->child_text);
-    }
 }
 
 /**
@@ -288,23 +173,9 @@ static void refresh_page() {
     obs_source_update_properties(g_xbox_game_cover_src);
 }
 
-/**
- * Sets the image URL for the Xbox game cover source.
- *
- * @param url
- */
-static void source_set_image_url(const char *url) {
-    if (!g_xbox_game_cover_src)
-        return;
-
-    /* Get the private data from the source */
-    void *data = obs_obj_get_data(g_xbox_game_cover_src);
-    if (!data)
-        return;
-
-    xbox_game_cover_source_t *s = data;
-    set_image_url(s, url);
-}
+//  --------------------------------------------------------------------------------------------------------------------
+//	Event handlers
+//  --------------------------------------------------------------------------------------------------------------------
 
 /**
  * Called when the Sign-out button is clicked
@@ -417,10 +288,156 @@ static bool on_monitoring_clicked(obs_properties_t *props, obs_property_t *prope
     return true;
 }
 
+//  --------------------------------------------------------------------------------------------------------------------
+//	Source callbacks
+//  --------------------------------------------------------------------------------------------------------------------
+
+/**
+ *
+ * @param settings
+ * @param source
+ * @return
+ */
+static void *on_source_create(obs_data_t *settings, obs_source_t *source) {
+    g_xbox_game_cover_src = source;
+
+    xbox_game_cover_source_t *s = bzalloc(sizeof(*s));
+    s->source                   = source;
+
+    const char *t = obs_data_get_string(settings, "text");
+    s->text       = bstrdup(t ? t : "Hello from plugin");
+    s->width      = 800;
+    s->height     = 200;
+
+    /* Create built-in text source as a child */
+    obs_data_t *st = obs_data_create();
+    obs_data_set_string(st, "text", s->text);
+    s->child_text = obs_source_create_private("text_ft2_source", "child_text", st);
+    obs_data_release(st);
+
+    text_src_update_child(s);
+
+    return s;
+}
+
+/**
+ *
+ * @param data
+ */
+static void on_source_destroy(void *data) {
+    xbox_game_cover_source_t *s = data;
+
+    if (!s) {
+        return;
+    }
+
+    if (s->child_text) {
+        obs_source_release(s->child_text);
+    }
+
+    /* Free image resources */
+    if (s->image_texture) {
+        obs_enter_graphics();
+        gs_texture_destroy(s->image_texture);
+        obs_leave_graphics();
+    }
+
+    bfree(s->image_url);
+    bfree(s->text);
+    bfree(s);
+}
+
+/**
+ *
+ * @param data
+ * @param settings
+ */
+static void on_source_update(void *data, obs_data_t *settings) {
+    xbox_game_cover_source_t *s = data;
+    const char               *t = obs_data_get_string(settings, "text");
+
+    bfree(s->text);
+    s->text = bstrdup(t ? t : "");
+
+    text_src_update_child(s);
+}
+
+/**
+ * Returns the configured width of the source.
+ *
+ * @param data
+ * @return
+ */
+static uint32_t source_get_width(void *data) {
+    const xbox_game_cover_source_t *s = data;
+    return s->width;
+}
+
+/**
+ * Returns the configured height of the source.
+ *
+ * @param data
+ * @return
+ */
+static uint32_t source_get_height(void *data) {
+    const xbox_game_cover_source_t *s = data;
+    return s->height;
+}
+
+/**
+ * Draws the image.
+ *
+ * @param data
+ * @param effect
+ */
+static void on_source_video_render(void *data, gs_effect_t *effect) {
+
+    xbox_game_cover_source_t *source = data;
+
+    if (!source) {
+        return;
+    }
+
+    /* Load image if needed (deferred load in graphics context) */
+    if (source->image_needs_load) {
+        load_image_from_url(source);
+    }
+
+    /* Render the image if we have a texture */
+    if (source->image_texture) {
+
+        /* Use the passed effect or get the default if NULL */
+        gs_effect_t *used_effect = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
+
+        /* Only start our own effect loop if no effect is currently active.
+         * If an effect was passed in, it's already active - just set texture and draw. */
+        if (effect) {
+            /* Effect already active from caller - just set texture and draw */
+            gs_eparam_t *image_param = gs_effect_get_param_by_name(effect, "image");
+            if (image_param)
+                gs_effect_set_texture(image_param, source->image_texture);
+            gs_draw_sprite(source->image_texture, 0, source->width, source->height);
+        } else {
+            /* No effect passed - start our own loop */
+            gs_eparam_t *image_param = gs_effect_get_param_by_name(used_effect, "image");
+            gs_effect_set_texture(image_param, source->image_texture);
+            while (gs_effect_loop(used_effect, "Draw")) {
+                gs_draw_sprite(source->image_texture, 0, source->width, source->height);
+            }
+        }
+    }
+
+    /* Let the child (Text FT2) render into our source */
+    if (source->child_text) {
+        obs_source_video_render(source->child_text);
+    }
+}
+
 /**
  * Configuration of the Xbox game cover source.
  */
-static obs_properties_t *xbox_game_cover_get_properties(void *data) {
+static obs_properties_t *source_get_properties(void *data) {
+
     UNUSED_PARAMETER(data);
 
     /* Finds out if there is a token available already */
@@ -462,19 +479,46 @@ static obs_properties_t *xbox_game_cover_get_properties(void *data) {
     return p;
 }
 
-//  --------------------------------------------------------------------------------------------------------------------
-//	Public methods
-//  --------------------------------------------------------------------------------------------------------------------
-
 /**
  *  Gets the name of the source.
  */
-const char *xbox_game_cover_src_get_name(void *unused) {
+static const char *source_get_name(void *unused) {
 
     UNUSED_PARAMETER(unused);
 
     return "Game Cover";
 }
+
+/**
+ * Configuration of the Xbox game cover source.
+ */
+static struct obs_source_info xbox_game_cover_source_info = {
+    .id             = "xbox_game_cover_source",
+    .type           = OBS_SOURCE_TYPE_INPUT,
+    .output_flags   = OBS_SOURCE_VIDEO,
+    .get_name       = source_get_name,
+    .create         = on_source_create,
+    .destroy        = on_source_destroy,
+    .update         = on_source_update,
+    .video_render   = on_source_video_render,
+    .get_properties = source_get_properties,
+    .get_width      = source_get_width,
+    .get_height     = source_get_height,
+    .video_tick     = NULL,
+};
+
+/**
+ * Returns the configuration of the Xbox game cover source.
+ *
+ * @return The configuration of the Xbox game cover source.
+ */
+static const struct obs_source_info *xbox_game_cover_source_get(void) {
+    return &xbox_game_cover_source_info;
+}
+
+//  --------------------------------------------------------------------------------------------------------------------
+//	Public functions
+//  --------------------------------------------------------------------------------------------------------------------
 
 /**
  * Registers the Xbox game cover source with the OBS source system.
@@ -490,31 +534,4 @@ void xbox_game_cover_source_register(void) {
         xbox_monitoring_start(&on_xbox_game_played, &on_xbox_monitoring_connection_status_changed);
         obs_log(LOG_INFO, "Monitoring started");
     }
-}
-
-/**
- * Configuration of the Xbox game cover source.
- */
-static struct obs_source_info xbox_game_cover_source_info = {
-    .id             = "xbox_game_cover_source",
-    .type           = OBS_SOURCE_TYPE_INPUT,
-    .output_flags   = OBS_SOURCE_VIDEO,
-    .get_name       = xbox_game_cover_src_get_name,
-    .create         = xbox_game_cover_src_create,
-    .destroy        = xbox_game_cover_src_destroy,
-    .update         = xbox_game_cover_src_update,
-    .get_properties = xbox_game_cover_get_properties,
-    .get_width      = xbox_game_cover_src_get_width,
-    .get_height     = xbox_game_cover_src_get_height,
-    .video_tick     = NULL,
-    .video_render   = xbox_game_cover_src_video_render,
-};
-
-/**
- * Returns the configuration of the Xbox game cover source.
- *
- * @return The configuration of the Xbox game cover source.
- */
-const struct obs_source_info *xbox_game_cover_source_get(void) {
-    return &xbox_game_cover_source_info;
 }

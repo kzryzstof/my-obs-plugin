@@ -6,8 +6,7 @@
 extern "C" {
 #endif
 
-void                          xbox_game_cover_source_register(void);
-const struct obs_source_info *xbox_game_cover_source_get(void);
+void xbox_game_cover_source_register(void);
 
 #ifdef __cplusplus
 }
