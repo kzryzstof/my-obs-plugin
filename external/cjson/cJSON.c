@@ -20,6 +20,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_MSC_VER)
+  #define strcasecmp _stricmp
+#elif !defined(__APPLE__)
+  /* POSIX declares strcasecmp in <strings.h>. (macOS usually provides it, but
+     including it conditionally keeps this vendored file portable.) */
+  #include <strings.h>
+#endif
+
 /*
   This is a trimmed-but-compatible vendored implementation sufficient for
   typical parsing/printing used in plugins.

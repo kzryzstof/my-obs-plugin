@@ -146,37 +146,21 @@ static int get_p256_private_scalar_32(const EVP_PKEY *pkey, unsigned char out32[
     if (!pkey || !out32)
         return 0;
 
-    /* Preferred (OpenSSL 3): params API */
-    size_t priv_len = 0;
-    if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0, &priv_len) == 1 && priv_len > 0) {
-        unsigned char tmp[32];
-        if (priv_len > sizeof(tmp))
-            return 0;
-
-        memset(tmp, 0, sizeof(tmp));
-        if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, tmp, sizeof(tmp), &priv_len) != 1)
-            return 0;
-
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+    /* OpenSSL 3+: Prefer the non-deprecated params API. */
+    BIGNUM *d = NULL;
+    if (EVP_PKEY_get_bn_param((EVP_PKEY *)pkey, OSSL_PKEY_PARAM_PRIV_KEY, &d) == 1 && d) {
+        int ok = 0;
         memset(out32, 0, 32);
-        if (priv_len < 32) {
-            memcpy(out32 + (32 - priv_len), tmp, priv_len);
-        } else if (priv_len == 32) {
-            memcpy(out32, tmp, 32);
-        } else {
-            return 0;
-        }
-
-        return 1;
+        ok = (BN_bn2binpad(d, out32, 32) == 32);
+        BN_clear_free(d);
+        return ok;
     }
 
-#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
-#if defined(__GNUC__) || defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
-#endif
-
-    /* Fallback (legacy): EC_KEY private BIGNUM */
+    /* Some provider-backed keys may not expose the private scalar. */
+    return 0;
+#else
+    /* OpenSSL 1.1.x: legacy EC_KEY private BIGNUM */
     const EC_KEY *ec = EVP_PKEY_get0_EC_KEY((EVP_PKEY *)pkey);
     if (!ec)
         return 0;
@@ -187,16 +171,8 @@ static int get_p256_private_scalar_32(const EVP_PKEY *pkey, unsigned char out32[
 
     memset(out32, 0, 32);
     /* BN_bn2binpad returns number of bytes written or -1 on error */
-    if (BN_bn2binpad(d, out32, 32) != 32)
-        return 0;
-
-#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
-#if defined(__GNUC__) || defined(__clang__)
-#pragma clang diagnostic pop
+    return (BN_bn2binpad(d, out32, 32) == 32);
 #endif
-#endif
-
-    return 1;
 }
 
 /**
