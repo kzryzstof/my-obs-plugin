@@ -514,12 +514,12 @@ bool xbox_monitoring_is_active(void) {
     return false;
 }
 
-bool xbox_start_subscribe() {
+bool xbox_subscribe() {
     obs_log(LOG_WARNING, "Xbox RTA: WebSockets support not available, cannot subscribe");
     return false;
 }
 
-bool xbox_stop_subscribe(const char *subscription_id) {
+bool xbox_unsubscribe(const char *subscription_id) {
     (void)subscription_id;
     obs_log(LOG_WARNING, "Xbox RTA: WebSockets support not available, cannot unsubscribe");
     return false;
