@@ -515,7 +515,6 @@ bool xbox_monitoring_is_active(void) {
 }
 
 bool xbox_start_subscribe() {
-    (void)xuid;
     obs_log(LOG_WARNING, "Xbox RTA: WebSockets support not available, cannot subscribe");
     return false;
 }
@@ -527,7 +526,7 @@ bool xbox_stop_subscribe(const char *subscription_id) {
 }
 
 const game_t *get_current_game() {
-    return g_current_game;
+    return NULL;
 }
 
 #endif /* HAVE_LIBWEBSOCKETS */
