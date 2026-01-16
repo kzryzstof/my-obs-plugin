@@ -10,7 +10,9 @@
 
 #define PERSIST_FILE "achievements-tracker-state.json"
 
-#define USER_TOKEN "user_token"
+#define USER_ACCESS_TOKEN "user_access_token"
+#define USER_ACCESS_TOKEN_EXPIRY "user_access_token_expiry"
+#define USER_REFRESH_TOKEN "user_refresh_token"
 
 #define DEVICE_UUID "device_uuid"
 #define DEVICE_SERIAL_NUMBER "device_serial_number"
@@ -104,6 +106,10 @@ void state_clear(void) {
     /*obs_data_set_string(g_state, DEVICE_SERIAL_NUMBER, "");*/
     /*obs_data_set_string(g_state, DEVICE_KEYS, "");*/
 
+    obs_data_set_string(g_state, USER_ACCESS_TOKEN, "");
+    obs_data_set_int(g_state, USER_ACCESS_TOKEN_EXPIRY, 0);
+    obs_data_set_string(g_state, USER_REFRESH_TOKEN, "");
+    obs_data_set_string(g_state, XBOX_TOKEN_EXPIRY, "");
     obs_data_set_string(g_state, DEVICE_TOKEN, "");
     obs_data_set_string(g_state, XBOX_IDENTITY_GTG, "");
     obs_data_set_string(g_state, XBOX_IDENTITY_ID, "");
@@ -212,6 +218,11 @@ token_t *state_get_device_token(void) {
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = device_token;
 
+    if (is_token_expired(token)) {
+        obs_log(LOG_INFO, "Device token is expired");
+        return NULL;
+    }
+
     return token;
 }
 
@@ -232,17 +243,24 @@ token_t *state_get_sisu_token(void) {
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = sisu_token;
 
+    if (is_token_expired(token)) {
+        obs_log(LOG_INFO, "Sisu token is expired");
+        return NULL;
+    }
+
     return token;
 }
 
-void state_set_user_token(const token_t *user_token) {
-    obs_data_set_string(g_state, USER_TOKEN, user_token->value);
+void state_set_user_token(const token_t *user_token, const token_t *refresh_token) {
+    obs_data_set_string(g_state, USER_ACCESS_TOKEN, user_token->value);
+    obs_data_set_int(g_state, USER_ACCESS_TOKEN_EXPIRY, user_token->expires);
+    obs_data_set_string(g_state, USER_REFRESH_TOKEN, refresh_token->value);
     save_state(g_state);
 }
 
 token_t *state_get_user_token(void) {
 
-    const char *user_token = obs_data_get_string(g_state, USER_TOKEN);
+    const char *user_token = obs_data_get_string(g_state, USER_ACCESS_TOKEN);
 
     if (!user_token || strlen(user_token) == 0) {
         obs_log(LOG_INFO, "No user token found in the cache");
@@ -251,6 +269,25 @@ token_t *state_get_user_token(void) {
 
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = user_token;
+
+    if (is_token_expired(token)) {
+        obs_log(LOG_INFO, "User token is expired");
+        return NULL;
+    }
+
+    return token;
+}
+
+token_t *state_get_user_refresh_token(void) {
+    const char *refresh_token = obs_data_get_string(g_state, USER_REFRESH_TOKEN);
+
+    if (!refresh_token || strlen(refresh_token) == 0) {
+        obs_log(LOG_INFO, "No refresh token found in the cache");
+        return NULL;
+    }
+
+    token_t *token = bzalloc(sizeof(token_t));
+    token->value   = refresh_token;
 
     return token;
 }
@@ -301,7 +338,7 @@ xbox_identity_t *state_get_xbox_identity(void) {
         return NULL;
     }
 
-    obs_log(LOG_INFO, "Xbox identity found in the cache: %s (%s)", gtg, xid);
+    obs_log(LOG_DEBUG, "Xbox identity found in the cache: %s (%s)", gtg, xid);
 
     token_t *token = bzalloc(sizeof(token_t));
     token->value   = xbox_token;

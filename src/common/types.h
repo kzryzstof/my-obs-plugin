@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <openssl/evp.h>
 #include <stdint.h>
 
@@ -41,6 +42,13 @@ typedef struct xbox_identity {
     const char    *uhs;
     const token_t *token;
 } xbox_identity_t;
+
+typedef struct game {
+    const char *id;
+    const char *title;
+} game_t;
+
+bool is_token_expired(const token_t *token);
 
 #ifdef __cplusplus
 }

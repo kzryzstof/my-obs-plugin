@@ -10,8 +10,9 @@ void io_load(void);
 
 device_t *state_get_device(void);
 
-void     state_set_user_token(const token_t *user_token);
+void     state_set_user_token(const token_t *user_token, const token_t *refresh_token);
 token_t *state_get_user_token(void);
+token_t *state_get_user_refresh_token(void);
 
 void     state_set_device_token(const token_t *device_token);
 token_t *state_get_device_token(void);

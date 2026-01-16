@@ -21,6 +21,14 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
+# ------------------------------
+# Vendored deps
+# ------------------------------
+# cJSON (and optional cJSON_Utils)
+add_library(cjson STATIC external/cjson/cJSON.c external/cjson/cJSON_Utils.c)
+
+target_include_directories(cjson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/external/cjson)
+
 # Windows UUID (Rpc.h/UUuid*) lives in Rpcrt4
 if(WIN32)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Rpcrt4)
@@ -45,6 +53,66 @@ endif()
 # HTTP client for OAuth + XBL/XSTS flows
 find_package(CURL REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
+
+# WebSocket client for Xbox Live RTA monitoring
+# Try multiple methods to find libwebsockets
+set(LIBWEBSOCKETS_FOUND FALSE)
+
+# Method 1: Try CMake's find_package
+find_package(Libwebsockets QUIET)
+if(Libwebsockets_FOUND OR LIBWEBSOCKETS_FOUND)
+  set(LIBWEBSOCKETS_FOUND TRUE)
+  if(TARGET websockets OR TARGET websockets_shared)
+    # Use the imported target
+    if(TARGET websockets_shared)
+      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE websockets_shared)
+    else()
+      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE websockets)
+    endif()
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE HAVE_LIBWEBSOCKETS)
+    message(STATUS "Found libwebsockets via CMake package")
+  endif()
+endif()
+
+# Method 2: Try pkg-config if CMake method didn't work
+if(NOT LIBWEBSOCKETS_FOUND)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(LIBWEBSOCKETS QUIET libwebsockets)
+    if(LIBWEBSOCKETS_FOUND)
+      target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${LIBWEBSOCKETS_INCLUDE_DIRS})
+      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${LIBWEBSOCKETS_LIBRARIES})
+      target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE HAVE_LIBWEBSOCKETS)
+      message(STATUS "Found libwebsockets via pkg-config")
+    endif()
+  endif()
+endif()
+
+# Method 3: Try manual search in common locations (Homebrew, etc.)
+if(NOT LIBWEBSOCKETS_FOUND AND APPLE)
+  # Check common Homebrew paths
+  set(HOMEBREW_PREFIXES "/opt/homebrew" "/usr/local")
+  foreach(prefix ${HOMEBREW_PREFIXES})
+    if(EXISTS "${prefix}/include/libwebsockets.h")
+      if(EXISTS "${prefix}/lib/libwebsockets.dylib" OR EXISTS "${prefix}/lib/libwebsockets.a")
+        target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE "${prefix}/include")
+        target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE "${prefix}/lib")
+        target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE websockets)
+        target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE HAVE_LIBWEBSOCKETS)
+        set(LIBWEBSOCKETS_FOUND TRUE)
+        message(STATUS "Found libwebsockets in ${prefix}")
+        break()
+      endif()
+    endif()
+  endforeach()
+endif()
+
+if(NOT LIBWEBSOCKETS_FOUND)
+  message(WARNING "libwebsockets not found. Xbox Live RTA monitoring will be disabled.")
+  message(WARNING "To enable RTA monitoring, install libwebsockets:")
+  message(WARNING "  macOS: brew install libwebsockets")
+  message(WARNING "  Linux: apt-get install libwebsockets-dev (or dnf install libwebsockets-devel)")
+endif()
 
 if(APPLE)
   execute_process(
@@ -158,19 +226,25 @@ target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE
     src/main.c
-    src/sources/xbox_achievements_text_source.c
+    src/sources/xbox/game_cover_source.c
+    src/sources/xbox/achievements_text_source.c
     src/crypto/crypto.c
+    src/common/types.c
     src/net/browser/browser.c
     src/net/http/http.c
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
     src/xbox/xbox_client.c
+    src/xbox/xbox_monitoring.c
     src/io/state.c
     src/encoding/base64.c
     src/util/uuid.c
     src/time/time.c
 )
+
+# Link vendored deps
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE cjson)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
@@ -208,6 +282,9 @@ if(BUILD_TESTING)
 
   # Unity uses UNITY_INCLUDE_CONFIG_H to include a project-specific config header.
   target_compile_definitions(test_encoder PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Link vendored deps
+  target_link_libraries(test_encoder PRIVATE cjson)
 
   if(WIN32)
     target_link_libraries(test_encoder PRIVATE Rpcrt4)
@@ -267,6 +344,9 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_crypto PRIVATE UNITY_INCLUDE_CONFIG_H)
 
+  # Link vendored deps
+  target_link_libraries(test_crypto PRIVATE cjson)
+
   if(WIN32)
     target_link_libraries(test_crypto PRIVATE Rpcrt4)
   else()
@@ -311,6 +391,9 @@ if(BUILD_TESTING)
   )
 
   target_compile_definitions(test_time PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Link vendored deps
+  target_link_libraries(test_time PRIVATE cjson)
 
   # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
   if(TARGET OpenSSL::Crypto)

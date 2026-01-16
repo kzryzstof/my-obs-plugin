@@ -50,7 +50,7 @@ char *json_read_string(const char *json, const char *key) {
     return out;
 }
 
-long *json_get_long_value(const char *json, const char *key) {
+long *json_read_long(const char *json, const char *key) {
     if (!json || !key)
         return NULL;
 
