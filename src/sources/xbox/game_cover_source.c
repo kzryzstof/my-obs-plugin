@@ -6,6 +6,7 @@
 #include <curl/curl.h>
 #include <inttypes.h>
 
+#include "drawing/image.h"
 #include "io/state.h"
 #include "oauth/xbox-live.h"
 #include "crypto/crypto.h"
@@ -397,26 +398,7 @@ static void on_source_video_render(void *data, gs_effect_t *effect) {
 
     /* Render the image if we have a texture */
     if (g_game_cover.image_texture) {
-
-        /* Use the passed effect or get the default if NULL */
-        gs_effect_t *used_effect = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
-
-        /* Only start our own effect loop if no effect is currently active.
-         * If an effect was passed in, it's already active - just set texture and draw. */
-        if (effect) {
-            /* Effect already active from caller - just set texture and draw */
-            gs_eparam_t *image_param = gs_effect_get_param_by_name(effect, "image");
-            if (image_param)
-                gs_effect_set_texture(image_param, g_game_cover.image_texture);
-            gs_draw_sprite(g_game_cover.image_texture, 0, source->width, source->height);
-        } else {
-            /* No effect passed - start our own loop */
-            gs_eparam_t *image_param = gs_effect_get_param_by_name(used_effect, "image");
-            gs_effect_set_texture(image_param, g_game_cover.image_texture);
-            while (gs_effect_loop(used_effect, "Draw")) {
-                gs_draw_sprite(g_game_cover.image_texture, 0, source->width, source->height);
-            }
-        }
+        draw_texture(g_game_cover.image_texture, source->width, source->height, effect);
     }
 
     /* Let the child (Text FT2) render into our source */

@@ -230,6 +230,7 @@ target_sources(
     src/sources/xbox/achievements_text_source.c
     src/crypto/crypto.c
     src/common/types.c
+    src/drawing/image.c
     src/net/browser/browser.c
     src/net/http/http.c
     src/net/json/json.c
