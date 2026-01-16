@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void draw_texture(gs_texture_t *texture, const uint32_t width, const uint32_t height, gs_effect_t *effect);
+void draw_texture(gs_texture_t *texture, uint32_t width, uint32_t height, gs_effect_t *effect);
 
 #ifdef __cplusplus
 }
