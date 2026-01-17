@@ -43,7 +43,6 @@ static void load_font_sheet() {
     // is usually done via gs_image_file_t.
     gs_image_file_init(&g_font_sheet_image, g_default_configuration->font_sheet_path);
 
-
     if (g_font_sheet_image.loaded) {
         obs_log(LOG_INFO, "The font sheet image has successfully been loaded");
     } else {
@@ -127,17 +126,17 @@ static void on_source_video_render(void *data, gs_effect_t *effect) {
     snprintf(gamerscore_text, sizeof(gamerscore_text), "%" PRId64, g_gamerscore);
 
     /* Retrieves the configured parameters of the font sheet */
-    const uint32_t font_width = g_default_configuration->font_width;
+    const uint32_t font_width  = g_default_configuration->font_width;
     const uint32_t font_height = g_default_configuration->font_height;
-    const uint32_t offset_x = g_default_configuration->offset_x;
-    const uint32_t offset_y = g_default_configuration->offset_y;
+    const uint32_t offset_x    = g_default_configuration->offset_x;
+    const uint32_t offset_y    = g_default_configuration->offset_y;
 
     /* Retrieves the texture of the font sheet */
     gs_texture_t *tex = g_font_sheet_image.texture;
 
     /* Draw using the stock "Draw" technique. */
     gs_effect_t *used_effect = effect ? effect : obs_get_base_effect(OBS_EFFECT_DEFAULT);
-    gs_eparam_t *image = gs_effect_get_param_by_name(used_effect, "image");
+    gs_eparam_t *image       = gs_effect_get_param_by_name(used_effect, "image");
 
     gs_effect_set_texture(image, tex);
 
