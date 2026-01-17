@@ -211,11 +211,13 @@ void xbox_account_source_register(void) {
 
     obs_register_source(xbox_source_get());
 
+    xbox_subscribe_game_played(&on_xbox_game_played);
+
     /* Starts the monitoring if the user is already logged in */
     xbox_identity_t *identity = state_get_xbox_identity();
 
     if (identity) {
-        xbox_monitoring_start(&on_xbox_game_played);
+        xbox_monitoring_start();
         obs_log(LOG_INFO, "Monitoring started");
     }
 }

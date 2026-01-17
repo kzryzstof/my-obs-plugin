@@ -30,11 +30,9 @@ const game_t *get_current_game();
 /**
  * Start monitoring Xbox Live RTA (Real-Time Activity) endpoint
  * Uses the authorization token from the current state
- * @param on_game_played Callback for received messages
- * @param on_status Callback for connection status changes
  * @return true if monitoring started successfully, false otherwise
  */
-bool xbox_monitoring_start(on_xbox_game_played_t on_game_played);
+bool xbox_monitoring_start();
 
 /**
  * Stop monitoring Xbox Live RTA endpoint
@@ -46,6 +44,8 @@ void xbox_monitoring_stop(void);
  * @return true if monitoring is active, false otherwise
  */
 bool xbox_monitoring_is_active(void);
+
+void xbox_subscribe_game_played(on_xbox_game_played_t callback);
 
 #ifdef __cplusplus
 }

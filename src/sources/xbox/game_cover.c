@@ -124,8 +124,6 @@ static void load_texture_from_file() {
  */
 static void on_xbox_game_played(const game_t *game) {
 
-    //  TODO --> NEED TO BE REGISTER SOMEWHERE!
-
     char text[4096];
     snprintf(text, 4096, "Playing game %s (%s)", game->title, game->id);
     obs_log(LOG_INFO, text);
@@ -304,11 +302,5 @@ void xbox_game_cover_source_register(void) {
 
     obs_register_source(xbox_game_cover_source_get());
 
-    /* Starts the monitoring if the user is already logged in */
-    xbox_identity_t *identity = state_get_xbox_identity();
-
-    if (identity) {
-        xbox_monitoring_start(&on_xbox_game_played);
-        obs_log(LOG_INFO, "Monitoring started");
-    }
+    xbox_subscribe_game_played(&on_xbox_game_played);
 }
