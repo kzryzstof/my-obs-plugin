@@ -23,18 +23,16 @@ typedef void (*on_xbox_game_played_t)(const game_t *game);
  * @param connected true if connected, false if disconnected
  * @param error_message Error message if disconnected due to error, NULL otherwise
  */
-typedef void (*on_xbox_rta_connection_status_t)(bool connected, const char *error_message);
+typedef void (*on_xbox_connection_changed_t)(bool connected, const char *error_message);
 
 const game_t *get_current_game();
 
 /**
  * Start monitoring Xbox Live RTA (Real-Time Activity) endpoint
  * Uses the authorization token from the current state
- * @param on_game_played Callback for received messages
- * @param on_status Callback for connection status changes
  * @return true if monitoring started successfully, false otherwise
  */
-bool xbox_monitoring_start(on_xbox_game_played_t on_game_played, on_xbox_rta_connection_status_t on_status);
+bool xbox_monitoring_start();
 
 /**
  * Stop monitoring Xbox Live RTA endpoint
@@ -47,20 +45,9 @@ void xbox_monitoring_stop(void);
  */
 bool xbox_monitoring_is_active(void);
 
-/**
- * Start subscribing to Xbox Live RTA notifications
- * Sends the subscription message over the WebSocket connection
- * @return true if subscription request was sent, false otherwise
- */
-bool xbox_subscribe();
+void xbox_subscribe_game_played(on_xbox_game_played_t callback);
 
-/**
- * Stop subscribing to Xbox Live RTA notifications
- * Sends the unsubscribe message over the WebSocket connection
- * @param subscription_id The subscription ID returned from the subscribe response
- * @return true if unsubscribe request was sent, false otherwise
- */
-bool xbox_unsubscribe(const char *subscription_id);
+void xbox_subscribe_connected_changed(on_xbox_connection_changed_t callback);
 
 #ifdef __cplusplus
 }

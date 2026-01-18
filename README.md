@@ -277,6 +277,7 @@ cmake --build build_macos_dev --target test_time --config Debug
 
 https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/gamerpic/atoc-reference-gamerpic
 GET https://titlehub.xboxlive.com/users/xuid({xuid})/titles/titleid({titleId})/decoration/Image
+https://deepwiki.com/microsoft/xbox-live-api/5-real-time-activity-system#resource-uri-format
 
 ## Contributing
 
