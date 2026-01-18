@@ -17,6 +17,8 @@
 
 #include "io/state.h"
 
+#include <text/parsers.h>
+
 #define RTA_HOST "rta.xboxlive.com"
 #define RTA_PATH "/connect"
 #define RTA_PORT 443
@@ -171,6 +173,11 @@ static bool xbox_unsubscribe(const char *subscription_id) {
 
 static void progress_buffer(const char *buffer) {
 
+    cJSON  *presence_item = NULL;
+    game_t *game          = NULL;
+    char   *message       = NULL;
+    cJSON  *root          = NULL;
+
     if (!buffer) {
         return;
     }
@@ -178,95 +185,49 @@ static void progress_buffer(const char *buffer) {
     obs_log(LOG_DEBUG, "New buffer received %s", buffer);
 
     /* Parse the buffer [X,X,X] */
-    cJSON *root = cJSON_Parse(buffer);
+    root = cJSON_Parse(buffer);
 
     if (!root) {
         return;
     }
 
     /* Retrieves the presence message at index 2 */
-    cJSON *presence_item = cJSON_GetArrayItem(root, 2);
+    presence_item = cJSON_GetArrayItem(root, 2);
 
     if (!presence_item) {
         obs_log(LOG_WARNING, "No presence item found");
-        cJSON_Delete(root);
-        return;
+        goto cleanup;
     }
 
-    char *presence_message = cJSON_PrintUnformatted(presence_item);
+    message = cJSON_PrintUnformatted(presence_item);
 
-    if (strlen(presence_message) < 5) {
+    if (strlen(message) < 5) {
+        obs_log(LOG_DEBUG, "No message");
+        goto cleanup;
+    }
+
+    obs_log(LOG_DEBUG, "Message is %s", message);
+
+    if (is_presence_message(message)) {
+        obs_log(LOG_DEBUG, "Message is a presence message");
+        game = parse_game(message);
+
         FREE(g_current_game);
-        obs_log(LOG_DEBUG, "No game is played");
-        return;
+        g_current_game = game;
+
+        notify_game_played(game);
+        goto cleanup;
     }
 
-    obs_log(LOG_DEBUG, "Presence message is %s", presence_message);
-
-    cJSON *presence_json = cJSON_Parse(presence_message);
-
-    char current_game_title[128];
-    char current_game_id[128];
-
-    for (int detail_index = 0; detail_index < 3; detail_index++) {
-
-        /* Finds out if there is anything at this index */
-        char is_game_key[512];
-        snprintf(is_game_key, sizeof(is_game_key), "/presenceDetails/%d/isGame", detail_index);
-
-        cJSON *is_game_value = cJSONUtils_GetPointer(presence_json, is_game_key);
-
-        if (!is_game_value) {
-            /* There is nothing more */
-            obs_log(LOG_DEBUG, "No more game at %d", detail_index);
-            break;
-        }
-
-        if (is_game_value->type == cJSON_False) {
-            /* This is not a game: most likely the xbox home */
-            obs_log(LOG_DEBUG, "No game at %d. Is game = %s", detail_index, is_game_value->valuestring);
-            continue;
-        }
-
-        obs_log(LOG_DEBUG, "Game at %d. Is game = %s", detail_index, is_game_value->valuestring);
-
-        /* Retrieve the game title and its ID */
-        char game_title_key[512];
-        snprintf(game_title_key, sizeof(game_title_key), "/presenceDetails/%d/presenceText", detail_index);
-
-        cJSON *game_title_value = cJSONUtils_GetPointer(presence_json, game_title_key);
-
-        obs_log(LOG_DEBUG, "Game title: %s %s", game_title_value->string, game_title_value->valuestring);
-
-        char game_id_key[512];
-        snprintf(game_id_key, sizeof(game_id_key), "/presenceDetails/%d/titleId", detail_index);
-
-        cJSON *game_id_value = cJSONUtils_GetPointer(presence_json, game_id_key);
-
-        obs_log(LOG_DEBUG, "Game ID: %s %s", game_id_value->string, game_id_value->valuestring);
-
-        snprintf(current_game_title, sizeof(current_game_title), "%s", game_title_value->valuestring);
-        snprintf(current_game_id, sizeof(current_game_id), "%s", game_id_value->valuestring);
+    if (is_achievement_message(message)) {
+        obs_log(LOG_DEBUG, "Message is an achievement message");
+        /* TODO */
     }
 
-    if (strlen(current_game_id) == 0) {
-        FREE(g_current_game);
-        obs_log(LOG_DEBUG, "No game found");
-        return;
-    }
-
-    obs_log(LOG_DEBUG, "Game is %s (%s)", current_game_title, current_game_id);
-
-    game_t *game = bzalloc(sizeof(game_t));
-    game->id     = strdup(current_game_id);
-    game->title  = strdup(current_game_title);
-
-    FREE(g_current_game);
-    g_current_game = game;
-
-    notify_game_played(game);
-
-    FREE(presence_message);
+cleanup:
+    FREE(message);
+    FREE_JSON(presence_item);
+    cJSON_Delete(root);
 }
 
 static int websocket_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
