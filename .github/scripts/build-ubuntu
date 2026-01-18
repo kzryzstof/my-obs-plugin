@@ -195,10 +195,6 @@ ${_usage_host:-}"
     local -r _preset="${target%%-*}${CI:+-ci}"
     case ${target} {
       ubuntu-*)
-        # Coverage requires Debug build
-        if (( coverage )) {
-          config='Debug'
-        }
 
         cmake_args+=(
           --preset ${_preset}-${target##*-}
