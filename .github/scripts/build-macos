@@ -57,6 +57,7 @@ build() {
   local -r -a _valid_configs=(Debug RelWithDebInfo Release MinSizeRel)
   local -i codesign=0
   local -i run_tests=0
+  local -i coverage=0
 
   local -a args
   while (( # )) {
@@ -81,6 +82,7 @@ build() {
         ;;
       -s|--codesign) codesign=1; shift ;;
       --run-tests) run_tests=1; shift ;;
+      --coverage) coverage=1; run_tests=1; shift ;;
       --debug) debug=1; shift ;;
       *) log_error "Unknown option: %B${1}%b"; exit 2 ;;
     }
@@ -108,6 +110,11 @@ build() {
   # Enable testing if requested
   if (( run_tests )) {
     cmake_args+=(-DBUILD_TESTING=ON)
+  }
+
+  # Enable coverage if requested
+  if (( coverage )) {
+    cmake_args+=(-DENABLE_COVERAGE=ON)
   }
 
   typeset -gx NSUnbufferedIO=YES
@@ -153,7 +160,22 @@ build() {
   # Run tests if requested
   if (( run_tests )) {
     log_group "Running tests..."
-    ctest --test-dir build_macos --build-config ${config} --output-on-failure
+    if (( coverage )) {
+      # Run tests via coverage target (generates HTML report)
+      cmake --build build_macos --config ${config} --target coverage
+
+      # Generate text summary for CI
+      if command -v gcovr &> /dev/null; then
+        log_group "Coverage Summary"
+        gcovr -r ${project_root} build_macos \
+          --exclude 'external/' \
+          --exclude '_deps/' \
+          --exclude 'test/' \
+          --print-summary
+      fi
+    } else {
+      ctest --test-dir build_macos --build-config ${config} --output-on-failure
+    }
   }
 
   log_group "Installing ${product_name}..."

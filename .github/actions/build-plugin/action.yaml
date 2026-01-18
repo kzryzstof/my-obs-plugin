@@ -35,6 +35,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install Coverage Tools (macOS) 📊
+      if: runner.os == 'macOS' && inputs.coverage == 'true'
+      shell: bash
+      run: |
+        : Install Coverage Tools
+        brew install gcovr
+
     - name: Run macOS Build
       if: runner.os == 'macOS'
       shell: zsh --no-rcs --errexit --pipefail {0}
@@ -51,6 +58,7 @@ runs:
 
         if [[ '${{ inputs.codesign }}' == 'true' ]] build_args+=(--codesign)
         if [[ '${{ inputs.runTests }}' == 'true' ]] build_args+=(--run-tests)
+        if [[ '${{ inputs.coverage }}' == 'true' ]] build_args+=(--coverage)
 
         .github/scripts/build-macos ${build_args}
 
