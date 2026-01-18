@@ -417,4 +417,48 @@ if(BUILD_TESTING)
       target_link_libraries(test_time PRIVATE ${OPENSSL_SSL_LIBRARY})
     endif()
   endif()
+
+  # ------------------------------
+  # test_parsers
+  # ------------------------------
+  add_executable(
+    test_parsers
+    test/test_parsers.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/time/time.c
+    test/stubs/bmem_stub.c
+  )
+
+  target_include_directories(
+    test_parsers
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_parsers PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Link vendored deps
+  target_link_libraries(test_parsers PRIVATE cjson)
+
+  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_parsers PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_parsers PRIVATE OpenSSL::SSL)
+    endif()
+
+    # Ensure headers are available even if the imported targets don't propagate include dirs.
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_parsers PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_parsers PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
 endif()
