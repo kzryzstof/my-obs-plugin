@@ -425,7 +425,7 @@ if(BUILD_TESTING)
     test_parsers
     test/test_parsers.c
     ${unity_SOURCE_DIR}/src/unity.c
-    src/time/time.c
+    src/text/parsers.c
     test/stubs/bmem_stub.c
   )
 
