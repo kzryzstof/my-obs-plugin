@@ -7,7 +7,6 @@
 #include <curl/curl.h>
 #include <inttypes.h>
 
-#include "io/state.h"
 #include "oauth/xbox-live.h"
 #include "xbox/xbox_client.h"
 #include "xbox/xbox_monitoring.h"
@@ -20,7 +19,7 @@ typedef struct xbox_account_source {
     uint32_t      height;
 } xbox_account_source_t;
 
-static int64_t                     g_gamerscore = 34698;
+static int64_t                     g_gamerscore = 0;
 static gamerscore_configuration_t *g_default_configuration;
 
 gs_image_file_t g_font_sheet_image;
@@ -51,11 +50,21 @@ static void load_font_sheet() {
     }
 }
 
-static void on_xbox_game_played(const game_t *game) {
+static void on_connection_changed(bool is_connected, const char *error_message) {
 
-    UNUSED_PARAMETER(game);
+    UNUSED_PARAMETER(error_message);
 
-    /* Saves the game information to load the cover on the next update */
+    if (!is_connected) {
+        return;
+    }
+
+    if (!xbox_fetch_gamerscore(&g_gamerscore)) {
+        g_gamerscore = 0;
+        obs_log(LOG_ERROR, "Unable to fetch gamerscore after connection established");
+        return;
+    }
+
+    obs_log(LOG_INFO, "Gamerscore is %" PRId64, g_gamerscore);
 }
 
 //  --------------------------------------------------------------------------------------------------------------------
@@ -233,4 +242,6 @@ void xbox_gamerscore_source_register(void) {
     obs_register_source(xbox_source_get());
 
     load_font_sheet();
+
+    xbox_subscribe_connected_changed(&on_connection_changed);
 }

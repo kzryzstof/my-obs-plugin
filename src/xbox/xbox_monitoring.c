@@ -23,12 +23,19 @@
 
 #define PROTOCOL "rta.xboxlive.com.V2"
 
-typedef struct subscription_node {
-    on_xbox_game_played_t     callback;
-    struct subscription_node *next;
-} subscription_node_t;
+typedef struct game_played_subscription {
+    on_xbox_game_played_t            callback;
+    struct game_played_subscription *next;
+} game_played_subscription_t;
 
-static subscription_node_t *g_game_played_subscriptions = NULL;
+static game_played_subscription_t *g_game_played_subscriptions = NULL;
+
+typedef struct connection_changed_subscription {
+    on_xbox_connection_changed_t            callback;
+    struct connection_changed_subscription *next;
+} connection_changed_subscription_t;
+
+static connection_changed_subscription_t *g_connection_changed_subscriptions = NULL;
 
 typedef struct monitoring_context {
     struct lws_context *context;
@@ -36,9 +43,6 @@ typedef struct monitoring_context {
     pthread_t           thread;
     bool                running;
     bool                connected;
-
-    /* Callbacks */
-    on_xbox_rta_connection_status_t on_status;
 
     /* Authentication */
     char *auth_token;
@@ -53,12 +57,26 @@ static monitoring_context_t *g_monitoring_context = NULL;
 static game_t               *g_current_game       = NULL;
 
 static void notify_game_played(const game_t *game) {
-    obs_log(LOG_DEBUG, "Notifying game played: %s (%s)", game->title, game->id);
+    obs_log(LOG_INFO, "Notifying game played: %s (%s)", game->title, game->id);
 
-    subscription_node_t *node = g_game_played_subscriptions;
+    game_played_subscription_t *node = g_game_played_subscriptions;
 
     while (node) {
         node->callback(game);
+        node = node->next;
+    }
+}
+
+static void notify_connection_changed(bool connected, const char *error_message) {
+
+    UNUSED_PARAMETER(error_message);
+
+    obs_log(LOG_INFO, "Notifying of a connection changed: %s (%s)", connected ? "Connected" : "Not connected", error_message);
+
+    connection_changed_subscription_t *node = g_connection_changed_subscriptions;
+
+    while (node) {
+        node->callback(connected, error_message);
         node = node->next;
     }
 }
@@ -93,7 +111,7 @@ static bool send_websocket_message(const char *message) {
         return false;
     }
 
-    obs_log(LOG_DEBUG, "Xbox RTA: Sent message: %s", message);
+    obs_log(LOG_INFO, "Xbox RTA: Sent message: %s", message);
     return true;
 }
 
@@ -252,7 +270,7 @@ static int websocket_callback(struct lws *wsi, enum lws_callback_reasons reason,
 
     UNUSED_PARAMETER(user);
 
-    monitoring_context_t *ctx = (monitoring_context_t *)lws_context_user(lws_get_context(wsi));
+    monitoring_context_t *ctx = lws_context_user(lws_get_context(wsi));
 
     if (!ctx) {
         return 0;
@@ -284,9 +302,7 @@ static int websocket_callback(struct lws *wsi, enum lws_callback_reasons reason,
         obs_log(LOG_INFO, "Xbox RTA: WebSocket connection established");
         ctx->connected = true;
         xbox_subscribe();
-        if (ctx->on_status) {
-            ctx->on_status(true, NULL);
-        }
+        notify_connection_changed(true, NULL);
         break;
 
     case LWS_CALLBACK_CLIENT_RECEIVE:
@@ -325,18 +341,14 @@ static int websocket_callback(struct lws *wsi, enum lws_callback_reasons reason,
     case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
         obs_log(LOG_ERROR, "Xbox RTA: Connection error: %s", in ? (char *)in : "unknown");
         ctx->connected = false;
-        if (ctx->on_status) {
-            ctx->on_status(false, in ? (char *)in : "Connection error");
-        }
+        notify_connection_changed(false, in ? (char *)in : "Connection error");
         break;
 
     case LWS_CALLBACK_CLIENT_CLOSED:
         obs_log(LOG_INFO, "Xbox RTA: Connection closed");
         ctx->connected = false;
         ctx->wsi       = NULL;
-        if (ctx->on_status) {
-            ctx->on_status(false, NULL);
-        }
+        notify_connection_changed(false, NULL);
         break;
 
     case LWS_CALLBACK_WSI_DESTROY:
@@ -367,9 +379,7 @@ static void *monitoring_thread(void *arg) {
     ctx->context = lws_create_context(&info);
     if (!ctx->context) {
         obs_log(LOG_ERROR, "Xbox RTA: Failed to create WebSocket context");
-        if (ctx->on_status) {
-            ctx->on_status(false, "Failed to create WebSocket context");
-        }
+        notify_connection_changed(false, "Failed to create WebSocket context");
         return NULL;
     }
 
@@ -390,9 +400,7 @@ static void *monitoring_thread(void *arg) {
     ctx->wsi = lws_client_connect_via_info(&ccinfo);
     if (!ctx->wsi) {
         obs_log(LOG_ERROR, "Xbox RTA: Failed to connect");
-        if (ctx->on_status) {
-            ctx->on_status(false, "Failed to connect");
-        }
+        notify_connection_changed(false, "Failed to connect");
         lws_context_destroy(ctx->context);
         ctx->context = NULL;
         return NULL;
@@ -447,7 +455,6 @@ bool xbox_monitoring_start() {
     char auth_header[4096];
     snprintf(auth_header, sizeof(auth_header), "XBL3.0 x=%s;%s", identity->uhs, identity->token->value);
 
-    g_monitoring_context->on_status  = NULL;
     g_monitoring_context->running    = true;
     g_monitoring_context->connected  = false;
     g_monitoring_context->auth_token = bstrdup(auth_header);
@@ -508,19 +515,23 @@ void xbox_monitoring_stop(void) {
 }
 
 bool xbox_monitoring_is_active(void) {
-    return g_monitoring_context != NULL && g_monitoring_context->running;
+    if (!g_monitoring_context) {
+        return false;
+    }
+
+    return g_monitoring_context->running;
 }
 
 const game_t *get_current_game() {
     return g_current_game;
 }
 
-void xbox_subscribe_game_played(on_xbox_game_played_t callback) {
+void xbox_subscribe_game_played(const on_xbox_game_played_t callback) {
     if (!callback) {
         return;
     }
 
-    subscription_node_t *new_node = bzalloc(sizeof(subscription_node_t));
+    game_played_subscription_t *new_node = bzalloc(sizeof(game_played_subscription_t));
 
     if (!new_node) {
         obs_log(LOG_ERROR, "Failed to allocate subscription node");
@@ -534,6 +545,25 @@ void xbox_subscribe_game_played(on_xbox_game_played_t callback) {
     if (g_current_game) {
         callback(g_current_game);
     }
+}
+
+void xbox_subscribe_connected_changed(const on_xbox_connection_changed_t callback) {
+    if (!callback) {
+        return;
+    }
+
+    connection_changed_subscription_t *new_node = bzalloc(sizeof(connection_changed_subscription_t));
+
+    if (!new_node) {
+        obs_log(LOG_ERROR, "Failed to allocate subscription node");
+        return;
+    }
+
+    new_node->callback                 = callback;
+    new_node->next                     = g_connection_changed_subscriptions;
+    g_connection_changed_subscriptions = new_node;
+
+    callback(g_monitoring_context->connected, "");
 }
 
 #else /* !HAVE_LIBWEBSOCKETS */
@@ -558,7 +588,11 @@ const game_t *get_current_game() {
     return NULL;
 }
 
-void xbox_subscribe_game_played(on_xbox_game_played_t callback) {
+void xbox_subscribe_game_played(const on_xbox_game_played_t callback) {
+    (void)callback;
+}
+
+void xbox_subscribe_connected_changed(const on_xbox_connection_changed_t callback) {
     (void)callback;
 }
 

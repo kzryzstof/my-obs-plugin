@@ -23,7 +23,7 @@ typedef void (*on_xbox_game_played_t)(const game_t *game);
  * @param connected true if connected, false if disconnected
  * @param error_message Error message if disconnected due to error, NULL otherwise
  */
-typedef void (*on_xbox_rta_connection_status_t)(bool connected, const char *error_message);
+typedef void (*on_xbox_connection_changed_t)(bool connected, const char *error_message);
 
 const game_t *get_current_game();
 
@@ -46,6 +46,8 @@ void xbox_monitoring_stop(void);
 bool xbox_monitoring_is_active(void);
 
 void xbox_subscribe_game_played(on_xbox_game_played_t callback);
+
+void xbox_subscribe_connected_changed(on_xbox_connection_changed_t callback);
 
 #ifdef __cplusplus
 }
