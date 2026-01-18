@@ -27,4 +27,3 @@ function(enable_coverage target)
     target_link_options(${target} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
   endif()
 endfunction()
-
