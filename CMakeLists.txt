@@ -226,25 +226,32 @@ target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE
     src/main.c
-    src/sources/xbox/game_cover_source.c
-    src/sources/xbox/achievements_text_source.c
+    src/sources/xbox/account.c
+    src/sources/xbox/game_cover.c
+    src/sources/xbox/gamerscore.c
     src/crypto/crypto.c
     src/common/types.c
+    src/drawing/image.c
+    src/drawing/text.c
     src/net/browser/browser.c
     src/net/http/http.c
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
     src/xbox/xbox_client.c
-    src/xbox/xbox_monitoring.c
+    src/xbox/xbox_monitor.c
     src/io/state.c
     src/encoding/base64.c
     src/util/uuid.c
+    src/text/parsers.c
     src/time/time.c
 )
 
 # Link vendored deps
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE cjson)
+if(UNIX AND NOT APPLE)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE m)
+endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
@@ -285,6 +292,9 @@ if(BUILD_TESTING)
 
   # Link vendored deps
   target_link_libraries(test_encoder PRIVATE cjson)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(test_encoder PRIVATE m)
+  endif()
 
   if(WIN32)
     target_link_libraries(test_encoder PRIVATE Rpcrt4)
@@ -346,6 +356,9 @@ if(BUILD_TESTING)
 
   # Link vendored deps
   target_link_libraries(test_crypto PRIVATE cjson)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(test_crypto PRIVATE m)
+  endif()
 
   if(WIN32)
     target_link_libraries(test_crypto PRIVATE Rpcrt4)
@@ -394,6 +407,9 @@ if(BUILD_TESTING)
 
   # Link vendored deps
   target_link_libraries(test_time PRIVATE cjson)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(test_time PRIVATE m)
+  endif()
 
   # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
   if(TARGET OpenSSL::Crypto)
@@ -411,6 +427,53 @@ if(BUILD_TESTING)
     target_link_libraries(test_time PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
     if(OPENSSL_SSL_LIBRARY)
       target_link_libraries(test_time PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
+
+  # ------------------------------
+  # test_parsers
+  # ------------------------------
+  add_executable(
+    test_parsers
+    test/test_parsers.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/text/parsers.c
+    test/stubs/bmem_stub.c
+  )
+
+  target_include_directories(
+    test_parsers
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_parsers PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Link vendored deps
+  target_link_libraries(test_parsers PRIVATE cjson)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(test_parsers PRIVATE m)
+  endif()
+
+  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_parsers PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_parsers PRIVATE OpenSSL::SSL)
+    endif()
+
+    # Ensure headers are available even if the imported targets don't propagate include dirs.
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_parsers PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_parsers PRIVATE ${OPENSSL_SSL_LIBRARY})
     endif()
   endif()
 endif()
