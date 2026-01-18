@@ -141,6 +141,7 @@ jobs:
           config: ${{ needs.check-event.outputs.config }}
           codesign: ${{ fromJSON(needs.check-event.outputs.codesign) }}
           codesignIdent: ${{ steps.codesign.outputs.codesignIdent }}
+          runTests: 'true'
 
       - name: Package Plugin 📀
         uses: ./.github/actions/package-plugin

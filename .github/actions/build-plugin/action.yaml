@@ -24,6 +24,10 @@ inputs:
     description: Enable code coverage (Linux only)
     required: false
     default: 'false'
+  runTests:
+    description: Run unit tests after build
+    required: false
+    default: 'false'
   workingDirectory:
     description: Working directory for packaging
     required: false
@@ -46,6 +50,7 @@ runs:
         if (( ${+RUNNER_DEBUG} )) build_args+=(--debug)
 
         if [[ '${{ inputs.codesign }}' == 'true' ]] build_args+=(--codesign)
+        if [[ '${{ inputs.runTests }}' == 'true' ]] build_args+=(--run-tests)
 
         .github/scripts/build-macos ${build_args}
 
