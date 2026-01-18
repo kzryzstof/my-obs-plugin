@@ -269,6 +269,11 @@ if(BUILD_TESTING)
   # Unity test framework (vendored via FetchContent)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
 
+  # When coverage is enabled, add a convenience `coverage` target.
+  if(ENABLE_COVERAGE)
+    add_coverage_target()
+  endif()
+
   # ------------------------------
   # test_encoder
   # ------------------------------
