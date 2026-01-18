@@ -163,8 +163,6 @@ static void on_source_video_render(void *data, gs_effect_t *effect) {
         const uint32_t src_x = offset_x + digit * font_width;
         const uint32_t src_y = offset_y;
 
-        obs_log(LOG_INFO, "Drawing digit %d at (%f,%f) found at (%f,%f)", digit, x, y, src_x, src_y);
-
         // Draw subregion at current position.
         gs_matrix_push();
         gs_matrix_translate3f(x, y, 0.0f);
