@@ -232,8 +232,11 @@ ${_usage_host:-}"
 
     # Run tests and generate coverage report if coverage is enabled
     if (( coverage )) {
-      log_group "Running tests with coverage..."
+      log_group "Building test targets..."
       local build_dir="build_${target##*-}"
+      cmake --build ${build_dir} --target test_encoder test_crypto test_time test_parsers
+
+      log_group "Running tests with coverage..."
       cmake --build ${build_dir} --target coverage
 
       # Generate text summary for CI

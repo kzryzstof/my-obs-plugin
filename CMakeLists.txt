@@ -269,11 +269,6 @@ if(BUILD_TESTING)
   # Unity test framework (vendored via FetchContent)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
 
-  # When coverage is enabled, add a convenience `coverage` target.
-  if(ENABLE_COVERAGE)
-    add_coverage_target()
-  endif()
-
   # ------------------------------
   # test_encoder
   # ------------------------------
@@ -286,6 +281,8 @@ if(BUILD_TESTING)
     src/time/time.c
     test/stubs/bmem_stub.c
   )
+
+  add_test(NAME test_encoder COMMAND test_encoder)
 
   if(ENABLE_COVERAGE)
     enable_coverage(test_encoder)
@@ -356,6 +353,8 @@ if(BUILD_TESTING)
     test/stubs/bmem_stub.c
   )
 
+  add_test(NAME test_crypto COMMAND test_crypto)
+
   if(ENABLE_COVERAGE)
     enable_coverage(test_crypto)
   endif()
@@ -412,6 +411,8 @@ if(BUILD_TESTING)
   # ------------------------------
   add_executable(test_time test/test_time.c ${unity_SOURCE_DIR}/src/unity.c src/time/time.c test/stubs/bmem_stub.c)
 
+  add_test(NAME test_time COMMAND test_time)
+
   if(ENABLE_COVERAGE)
     enable_coverage(test_time)
   endif()
@@ -463,6 +464,8 @@ if(BUILD_TESTING)
     test/stubs/bmem_stub.c
   )
 
+  add_test(NAME test_parsers COMMAND test_parsers)
+
   if(ENABLE_COVERAGE)
     enable_coverage(test_parsers)
   endif()
@@ -501,5 +504,12 @@ if(BUILD_TESTING)
     if(OPENSSL_SSL_LIBRARY)
       target_link_libraries(test_parsers PRIVATE ${OPENSSL_SSL_LIBRARY})
     endif()
+  endif()
+
+  # ------------------------------
+  # Coverage target (must be after all test targets are defined)
+  # ------------------------------
+  if(ENABLE_COVERAGE)
+    add_coverage_target(test_encoder test_crypto test_time test_parsers)
   endif()
 endif()

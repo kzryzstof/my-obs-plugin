@@ -159,6 +159,9 @@ build() {
 
   # Run tests if requested
   if (( run_tests )) {
+    log_group "Building test targets..."
+    cmake --build build_macos --config ${config} --target test_encoder test_crypto test_time test_parsers
+
     log_group "Running tests..."
     if (( coverage )) {
       # Run tests via coverage target (generates HTML report)
