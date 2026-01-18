@@ -88,6 +88,13 @@ typedef struct achievement {
     const media_asset_t *rewards;
 } achievement_t;
 
+typedef struct achievement_update {
+    const char                *service_config_id;
+    const char                *id;
+    const char                *progress_state;
+    struct achievement_update *next;
+} achievement_update_t;
+
 bool is_token_expired(const token_t *token);
 
 #ifdef __cplusplus

@@ -127,3 +127,75 @@ cleanup:
 
     return game;
 }
+
+achievement_update_t *parse_achievement_update(const char *json_string) {
+
+    cJSON                *json_root           = NULL;
+    achievement_update_t *achievement_updates = NULL;
+
+    if (!json_string || strlen(json_string) == 0) {
+        return NULL;
+    }
+
+    json_root = cJSON_Parse(json_string);
+
+    if (!json_root) {
+        return NULL;
+    }
+
+    cJSON *service_config_node = cJSONUtils_GetPointer(json_root, "/serviceConfigId");
+
+    if (!service_config_node) {
+        goto cleanup;
+    }
+
+    char current_service_config_id[128] = "";
+    snprintf(current_service_config_id, sizeof(current_service_config_id), "%s", service_config_node->valuestring);
+
+    for (int detail_index = 0; detail_index < 3; detail_index++) {
+
+        /* Finds out if there is anything at this index */
+        char id_key[512] = "";
+        snprintf(id_key, sizeof(id_key), "/progression/%d/id", detail_index);
+
+        cJSON *id_node = cJSONUtils_GetPointer(json_root, id_key);
+
+        if (!id_node) {
+            /* There is nothing more */
+            obs_log(LOG_DEBUG, "No more progression at %d", detail_index);
+            break;
+        }
+
+        char progress_state_key[512] = "";
+        snprintf(progress_state_key, sizeof(progress_state_key), "/progression/%d/progressState", detail_index);
+
+        cJSON *progress_state_node = cJSONUtils_GetPointer(json_root, progress_state_key);
+
+        if (!progress_state_node) {
+            /* This is not a game: most likely the xbox home */
+            obs_log(LOG_DEBUG, "No progress at %d. No progress state", detail_index);
+            continue;
+        }
+
+        achievement_update_t *update = bzalloc(sizeof(achievement_update_t));
+        update->service_config_id    = strdup(current_service_config_id);
+        update->id                   = strdup(id_node->valuestring);
+        update->progress_state       = strdup(progress_state_node->valuestring);
+        update->next                 = NULL;
+
+        if (!achievement_updates) {
+            achievement_updates = update;
+        } else {
+            achievement_update_t *last_update = achievement_updates;
+            while (last_update->next) {
+                last_update = last_update->next;
+            }
+            last_update->next = update;
+        }
+    }
+
+cleanup:
+    FREE_JSON(json_root);
+
+    return achievement_updates;
+}

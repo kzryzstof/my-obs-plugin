@@ -12,6 +12,8 @@ bool is_achievement_message(const char *json_string);
 
 game_t *parse_game(const char *json_string);
 
+achievement_update_t *parse_achievement_update(const char *json_string);
+
 #ifdef __cplusplus
 }
 #endif

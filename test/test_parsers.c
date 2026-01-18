@@ -186,6 +186,76 @@ static void parse_game__message_is_presence_game_returned(void) {
     TEST_ASSERT_EQUAL_STRING(actual->title, "The Outer Worlds 2");
 }
 
+//  Test parse_achievement
+
+static void parse_achievement__message_is_null_null_returned(void) {
+    //  Arrange.
+    const char *message = NULL;
+
+    //  Act.
+    achievement_update_t *actual = parse_achievement_update(message);
+
+    //  Assert.
+    TEST_ASSERT_NULL(actual);
+}
+
+static void parse_achievement__message_is_empty_null_returned(void) {
+    //  Arrange.
+    const char *message = " ";
+
+    //  Act.
+    achievement_update_t *actual = parse_achievement_update(message);
+
+    //  Assert.
+    TEST_ASSERT_NULL(actual);
+}
+
+static void parse_achievement__message_is_not_json_null_returned(void) {
+    //  Arrange.
+    const char *message = "this-is-not-a-json";
+
+    //  Act.
+    achievement_update_t *actual = parse_achievement_update(message);
+
+    //  Assert.
+    TEST_ASSERT_NULL(actual);
+}
+
+static void parse_achievement__message_is_achievement_achievement_returned(void) {
+    //  Arrange.
+    const char *message =
+        "{\"serviceConfigId\":\"00000000-0000-0000-0000-00007972ac43\",\"progression\":[{\"id\":\"1\",\"requirements\":[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"current\":\"100\",\"target\":\"100\",\"operationType\":\"Sum\",\"valueType\":\"Integer\",\"ruleParticipationType\":\"Individual\"}],\"progressState\":\"Achieved\",\"timeUnlocked\":\"2026-01-18T02:48:21.707Z\"}],\"contractVersion\":1}";
+
+    //  Act.
+    achievement_update_t *actual = parse_achievement_update(message);
+
+    //  Assert.
+    TEST_ASSERT_NOT_NULL(actual);
+    TEST_ASSERT_EQUAL_STRING(actual->service_config_id, "00000000-0000-0000-0000-00007972ac43");
+    TEST_ASSERT_EQUAL_STRING(actual->id, "1");
+    TEST_ASSERT_EQUAL_STRING(actual->progress_state, "Achieved");
+    TEST_ASSERT_NULL(actual->next);
+}
+
+static void parse_achievement__message_is_multiple_achievements_achievements_returned(void) {
+    //  Arrange.
+    const char *message =
+        "{\"serviceConfigId\":\"00000000-0000-0000-0000-00007972ac43\",\"progression\":[{\"id\":\"1\",\"requirements\":[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"current\":\"100\",\"target\":\"100\",\"operationType\":\"Sum\",\"valueType\":\"Integer\",\"ruleParticipationType\":\"Individual\"}],\"progressState\":\"Achieved\",\"timeUnlocked\":\"2026-01-18T02:48:21.707Z\"}, {\"id\":\"2\",\"requirements\":[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"current\":\"100\",\"target\":\"100\",\"operationType\":\"Sum\",\"valueType\":\"Integer\",\"ruleParticipationType\":\"Individual\"}],\"progressState\":\"NotAchieved\",\"timeUnlocked\":\"2026-01-18T02:48:21.707Z\"}],\"contractVersion\":1}";
+
+    //  Act.
+    achievement_update_t *actual = parse_achievement_update(message);
+
+    //  Assert.
+    TEST_ASSERT_NOT_NULL(actual);
+    TEST_ASSERT_EQUAL_STRING(actual->service_config_id, "00000000-0000-0000-0000-00007972ac43");
+    TEST_ASSERT_EQUAL_STRING(actual->id, "1");
+    TEST_ASSERT_EQUAL_STRING(actual->progress_state, "Achieved");
+    TEST_ASSERT_NOT_NULL(actual->next);
+    TEST_ASSERT_EQUAL_STRING(actual->next->service_config_id, "00000000-0000-0000-0000-00007972ac43");
+    TEST_ASSERT_EQUAL_STRING(actual->next->id, "2");
+    TEST_ASSERT_EQUAL_STRING(actual->next->progress_state, "NotAchieved");
+}
+
 int main(void) {
     UNITY_BEGIN();
     //  Test is_presence_message
@@ -206,5 +276,11 @@ int main(void) {
     RUN_TEST(parse_game__message_is_not_json_null_returned);
     RUN_TEST(parse_game__message_is_achievement_null_returned);
     RUN_TEST(parse_game__message_is_presence_game_returned);
+    //  Test parse_achievement
+    RUN_TEST(parse_achievement__message_is_null_null_returned);
+    RUN_TEST(parse_achievement__message_is_empty_null_returned);
+    RUN_TEST(parse_achievement__message_is_not_json_null_returned);
+    RUN_TEST(parse_achievement__message_is_achievement_achievement_returned);
+    RUN_TEST(parse_achievement__message_is_multiple_achievements_achievements_returned);
     return UNITY_END();
 }
