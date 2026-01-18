@@ -62,10 +62,10 @@ typedef struct gamerscore_configuration {
 
 //[3,0,{"serviceConfigId":"00000000-0000-0000-0000-00007972ac43","progression":[{"id":"1","requirements":[{"id":"00000000-0000-0000-0000-000000000000","current":"100","target":"100","operationType":"Sum","valueType":"Integer","ruleParticipationType":"Individual"}],"progressState":"Achieved","timeUnlocked":"2026-01-18T02:48:21.707Z"}],"contractVersion":1}]
 //[3,0,{"devicetype":"XboxOne","titleid":0,"string1":"Vu en dernier il y a 1 min : Application
-//Xbox","string2":"","presenceState":"Offline","presenceText":"Vu en dernier il y a 1 min : Application
-//Xbox","presenceDetails":[{"isBroadcasting":false,"device":"iOS","presenceText":"Vu en dernier il y a 1 min :
-//Application
-//Xbox","state":"LastSeen","titleId":"328178078","isGame":false,"isPrimary":true,"richPresenceText":""}],"xuid":2533274953419891}]
+// Xbox","string2":"","presenceState":"Offline","presenceText":"Vu en dernier il y a 1 min : Application
+// Xbox","presenceDetails":[{"isBroadcasting":false,"device":"iOS","presenceText":"Vu en dernier il y a 1 min :
+// Application
+// Xbox","state":"LastSeen","titleId":"328178078","isGame":false,"isPrimary":true,"richPresenceText":""}],"xuid":2533274953419891}]
 typedef struct media_asset {
     const char               *url;
     const struct media_asset *next;
