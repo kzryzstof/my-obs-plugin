@@ -71,7 +71,10 @@ static void notify_connection_changed(bool connected, const char *error_message)
 
     UNUSED_PARAMETER(error_message);
 
-    obs_log(LOG_INFO, "Notifying of a connection changed: %s (%s)", connected ? "Connected" : "Not connected", error_message);
+    obs_log(LOG_INFO,
+            "Notifying of a connection changed: %s (%s)",
+            connected ? "Connected" : "Not connected",
+            error_message);
 
     connection_changed_subscription_t *node = g_connection_changed_subscriptions;
 
