@@ -128,10 +128,10 @@ cleanup:
     return game;
 }
 
-achievement_update_t *parse_achievement_update(const char *json_string) {
+achievements_progress_t *parse_achievements_progress(const char *json_string) {
 
-    cJSON                *json_root           = NULL;
-    achievement_update_t *achievement_updates = NULL;
+    cJSON                   *json_root            = NULL;
+    achievements_progress_t *achievement_progress = NULL;
 
     if (!json_string || strlen(json_string) == 0) {
         return NULL;
@@ -177,25 +177,25 @@ achievement_update_t *parse_achievement_update(const char *json_string) {
             continue;
         }
 
-        achievement_update_t *update = bzalloc(sizeof(achievement_update_t));
-        update->service_config_id    = strdup(current_service_config_id);
-        update->id                   = strdup(id_node->valuestring);
-        update->progress_state       = strdup(progress_state_node->valuestring);
-        update->next                 = NULL;
+        achievements_progress_t *progress = bzalloc(sizeof(achievements_progress_t));
+        progress->service_config_id       = strdup(current_service_config_id);
+        progress->id                      = strdup(id_node->valuestring);
+        progress->progress_state          = strdup(progress_state_node->valuestring);
+        progress->next                    = NULL;
 
-        if (!achievement_updates) {
-            achievement_updates = update;
+        if (!achievement_progress) {
+            achievement_progress = progress;
         } else {
-            achievement_update_t *last_update = achievement_updates;
-            while (last_update->next) {
-                last_update = last_update->next;
+            achievements_progress_t *last_progress = achievement_progress;
+            while (last_progress->next) {
+                last_progress = last_progress->next;
             }
-            last_update->next = update;
+            last_progress->next = progress;
         }
     }
 
 cleanup:
     FREE_JSON(json_root);
 
-    return achievement_updates;
+    return achievement_progress;
 }

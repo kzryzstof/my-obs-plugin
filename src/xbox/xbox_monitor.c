@@ -32,6 +32,13 @@ typedef struct game_played_subscription {
 
 static game_played_subscription_t *g_game_played_subscriptions = NULL;
 
+typedef struct achievements_updated_subscription {
+    on_xbox_achievements_progressed_t         callback;
+    struct achievements_updated_subscription *next;
+} achievements_updated_subscription_t;
+
+static achievements_updated_subscription_t *g_achievements_updated_subscriptions = NULL;
+
 typedef struct connection_changed_subscription {
     on_xbox_connection_changed_t            callback;
     struct connection_changed_subscription *next;
@@ -61,11 +68,21 @@ static game_t               *g_current_game       = NULL;
 static void notify_game_played(const game_t *game) {
     obs_log(LOG_INFO, "Notifying game played: %s (%s)", game->title, game->id);
 
-    game_played_subscription_t *node = g_game_played_subscriptions;
+    game_played_subscription_t *subscriptions = g_game_played_subscriptions;
 
-    while (node) {
-        node->callback(game);
-        node = node->next;
+    while (subscriptions) {
+        subscriptions->callback(game);
+        subscriptions = subscriptions->next;
+    }
+}
+static void notify_achievements_progressed(const achievements_progress_t *achievements_progress) {
+    obs_log(LOG_INFO, "Notifying achievements progress: %s", achievements_progress->service_config_id);
+
+    achievements_updated_subscription_t *subscription = g_achievements_updated_subscriptions;
+
+    while (subscription) {
+        subscription->callback(achievements_progress);
+        subscription = subscription->next;
     }
 }
 
@@ -495,20 +512,37 @@ void xbox_subscribe_game_played(const on_xbox_game_played_t callback) {
         return;
     }
 
-    game_played_subscription_t *new_node = bzalloc(sizeof(game_played_subscription_t));
+    game_played_subscription_t *new_subscription = bzalloc(sizeof(game_played_subscription_t));
 
-    if (!new_node) {
+    if (!new_subscription) {
         obs_log(LOG_ERROR, "Failed to allocate subscription node");
         return;
     }
 
-    new_node->callback          = callback;
-    new_node->next              = g_game_played_subscriptions;
-    g_game_played_subscriptions = new_node;
+    new_subscription->callback  = callback;
+    new_subscription->next      = g_game_played_subscriptions;
+    g_game_played_subscriptions = new_subscription;
 
     if (g_current_game) {
         callback(g_current_game);
     }
+}
+
+void xbox_subscribe_achievements_progressed(on_xbox_achievements_progressed_t callback) {
+    if (!callback) {
+        return;
+    }
+
+    achievements_updated_subscription_t *new_subscription = bzalloc(sizeof(achievements_updated_subscription_t));
+
+    if (!new_subscription) {
+        obs_log(LOG_ERROR, "Failed to allocate subscription node");
+        return;
+    }
+
+    new_subscription->callback           = callback;
+    new_subscription->next               = g_achievements_updated_subscriptions;
+    g_achievements_updated_subscriptions = new_subscription;
 }
 
 void xbox_subscribe_connected_changed(const on_xbox_connection_changed_t callback) {
