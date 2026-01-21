@@ -259,7 +259,12 @@ achievement_t *parse_achievements(const char *json_string) {
         achievement->locked_description = get_node_string(json_root, achievement_index, "lockedDescription");
         achievement->is_secret          = get_node_bool(json_root, achievement_index, "isSecret");
 
-        obs_log(LOG_WARNING, "%s | Achievement %s (%s) is %s", achievement->service_config_id, achievement->name, achievement->id, achievement->progress_state);
+        obs_log(LOG_WARNING,
+                "%s | Achievement %s (%s) is %s",
+                achievement->service_config_id,
+                achievement->name,
+                achievement->id,
+                achievement->progress_state);
 
         /* Reads the media assets */
         media_asset_t *media_assets = NULL;

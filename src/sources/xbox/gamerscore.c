@@ -76,6 +76,7 @@ static void on_achievements_progressed(const achievements_progress_t *progress) 
 
     UNUSED_PARAMETER(progress);
 
+    /* TODO: Just because the achievement progressed, doesn't mean the gamerscore changed immediately */
     update_gamerscore();
 }
 

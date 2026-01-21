@@ -10,7 +10,7 @@ extern "C" {
 
 #define FREE(p)	\
 if (p)			\
-    bfree(p);
+    bfree((void *)p);
 
 #define FREE_JSON(p)	\
 if (p)			        \
@@ -95,6 +95,17 @@ typedef struct achievements_progress {
     const char                   *progress_state;
     struct achievements_progress *next;
 } achievements_progress_t;
+
+typedef struct unlocked_achievement {
+    const char                  *id;
+    int                          value;
+    struct unlocked_achievement *next;
+} unlocked_achievement_t;
+
+typedef struct gamerscore {
+    int                    *base_value;
+    unlocked_achievement_t *unlocked_achievements;
+} gamerscore_t;
 
 bool is_token_expired(const token_t *token);
 

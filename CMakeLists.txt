@@ -243,6 +243,7 @@ target_sources(
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
+        src/xbox/xbox_session.c
     src/xbox/xbox_client.c
     src/xbox/xbox_monitor.c
     src/io/state.c
@@ -507,9 +508,63 @@ if(BUILD_TESTING)
   endif()
 
   # ------------------------------
+  # test_xbox_session
+  # ------------------------------
+  add_executable(
+    test_xbox_session
+    test/test_xbox_session.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/xbox/xbox_session.c
+    test/stubs/bmem_stub.c
+    test/stubs/xbox/xbox_client_stub.c
+  )
+
+  add_test(NAME test_xbox_session COMMAND test_xbox_session)
+
+  if(ENABLE_COVERAGE)
+    enable_coverage(test_xbox_session)
+  endif()
+
+  target_include_directories(
+    test_xbox_session
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_xbox_session PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  # Link vendored deps
+  target_link_libraries(test_xbox_session PRIVATE cjson)
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(test_xbox_session PRIVATE m)
+  endif()
+
+  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
+  if(TARGET OpenSSL::Crypto)
+    target_link_libraries(test_xbox_session PRIVATE OpenSSL::Crypto)
+    if(TARGET OpenSSL::SSL)
+      target_link_libraries(test_xbox_session PRIVATE OpenSSL::SSL)
+    endif()
+
+    # Ensure headers are available even if the imported targets don't propagate include dirs.
+    if(OPENSSL_INCLUDE_DIR)
+      target_include_directories(test_xbox_session PRIVATE ${OPENSSL_INCLUDE_DIR})
+    endif()
+  else()
+    target_include_directories(test_xbox_session PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(test_xbox_session PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+    if(OPENSSL_SSL_LIBRARY)
+      target_link_libraries(test_xbox_session PRIVATE ${OPENSSL_SSL_LIBRARY})
+    endif()
+  endif()
+
+  # ------------------------------
   # Coverage target (must be after all test targets are defined)
   # ------------------------------
   if(ENABLE_COVERAGE)
-    add_coverage_target(test_encoder test_crypto test_time test_parsers)
+    add_coverage_target(test_encoder test_crypto test_time test_parsers test_xbox_session)
   endif()
 endif()
