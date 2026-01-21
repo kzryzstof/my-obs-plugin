@@ -243,7 +243,7 @@ target_sources(
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
-        src/xbox/xbox_session.c
+    src/xbox/xbox_session.c
     src/xbox/xbox_client.c
     src/xbox/xbox_monitor.c
     src/io/state.c

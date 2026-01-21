@@ -33,4 +33,3 @@ static inline char *xbox_get_game_cover(const game_t *game) {
 #ifdef __cplusplus
 }
 #endif
-

@@ -11,7 +11,8 @@
 //  Private functions.
 //  --------------------------------------------------------------------------------------------------------------------
 
-static const achievement_t *find_achievement(const achievements_progress_t *progress, const achievement_t *achievements) {
+static const achievement_t *find_achievement(const achievements_progress_t *progress,
+                                             const achievement_t           *achievements) {
 
     const achievement_t *current = achievements;
 
@@ -76,8 +77,8 @@ static void free_achievements(achievement_t *achievements) {
         FREE(current->description);
         FREE(current->locked_description);
         FREE(current->progress_state)
-        free_media_assets((void*)current->media_assets);
-        free_rewards((void*)current->rewards);
+        free_media_assets((void *)current->media_assets);
+        free_rewards((void *)current->rewards);
         FREE(current);
 
         current = next;
