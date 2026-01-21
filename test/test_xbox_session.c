@@ -196,8 +196,8 @@ static void xbox_session_change_game__session_has_game_and_game_is_not_null__new
     TEST_ASSERT_EQUAL(session.game->id, game_fallout_4->id);
 
     TEST_ASSERT_NOT_NULL(session.achievements);
-    //TEST_ASSERT_EQUAL(session.achievements->id, achievement_1->id);
-    //TEST_ASSERT_EQUAL(session.achievements->next->id, achievement_2->id);
+    // TEST_ASSERT_EQUAL(session.achievements->id, achievement_1->id);
+    // TEST_ASSERT_EQUAL(session.achievements->next->id, achievement_2->id);
 }
 
 //  Test xbox_session_compute_gamerscore
@@ -215,9 +215,9 @@ static void xbox_session_compute_gamerscore__session_is_null__0_returned(void) {
 
 static void xbox_session_compute_gamerscore__session_has_no_unlocked_achievement__base_value_returned(void) {
     //  Assert.
-    xbox_session_t *session = bzalloc(sizeof(xbox_session_t));
-    session->gamerscore = bzalloc(sizeof(gamerscore_t));
-    session->gamerscore->base_value = 1000;
+    xbox_session_t *session                    = bzalloc(sizeof(xbox_session_t));
+    session->gamerscore                        = bzalloc(sizeof(gamerscore_t));
+    session->gamerscore->base_value            = 1000;
     session->gamerscore->unlocked_achievements = NULL;
 
     //  Act.
@@ -231,12 +231,12 @@ static void xbox_session_compute_gamerscore__session_has_one_unlocked_achievemen
     //  Assert.
     xbox_session_t *session = bzalloc(sizeof(xbox_session_t));
 
-    session->gamerscore = bzalloc(sizeof(gamerscore_t));
+    session->gamerscore             = bzalloc(sizeof(gamerscore_t));
     session->gamerscore->base_value = 1000;
 
-    session->gamerscore->unlocked_achievements = bzalloc(sizeof(unlocked_achievement_t));
+    session->gamerscore->unlocked_achievements        = bzalloc(sizeof(unlocked_achievement_t));
     session->gamerscore->unlocked_achievements->value = 50;
-    session->gamerscore->unlocked_achievements->next = NULL;
+    session->gamerscore->unlocked_achievements->next  = NULL;
 
     //  Act.
     int gamerscore = xbox_session_compute_gamerscore(session);
@@ -249,15 +249,15 @@ static void xbox_session_compute_gamerscore__session_has_two_unlocked_achievemen
     //  Assert.
     xbox_session_t *session = bzalloc(sizeof(xbox_session_t));
 
-    session->gamerscore = bzalloc(sizeof(gamerscore_t));
+    session->gamerscore             = bzalloc(sizeof(gamerscore_t));
     session->gamerscore->base_value = 1000;
 
-    session->gamerscore->unlocked_achievements = bzalloc(sizeof(unlocked_achievement_t));
+    session->gamerscore->unlocked_achievements        = bzalloc(sizeof(unlocked_achievement_t));
     session->gamerscore->unlocked_achievements->value = 50;
 
-    session->gamerscore->unlocked_achievements->next = bzalloc(sizeof(unlocked_achievement_t));
+    session->gamerscore->unlocked_achievements->next        = bzalloc(sizeof(unlocked_achievement_t));
     session->gamerscore->unlocked_achievements->next->value = 80;
-    session->gamerscore->unlocked_achievements->next->next = NULL;
+    session->gamerscore->unlocked_achievements->next->next  = NULL;
 
     //  Act.
     int gamerscore = xbox_session_compute_gamerscore(session);
