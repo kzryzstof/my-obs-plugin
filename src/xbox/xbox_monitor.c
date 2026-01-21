@@ -729,7 +729,15 @@ const game_t *get_current_game() {
     return NULL;
 }
 
+const achievement_t *get_current_game_achievements() {
+    return NULL;
+}
+
 void xbox_subscribe_game_played(const on_xbox_game_played_t callback) {
+    (void)callback;
+}
+
+void xbox_subscribe_achievements_progressed(on_xbox_achievements_progressed_t callback) {
     (void)callback;
 }
 
