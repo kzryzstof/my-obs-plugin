@@ -184,10 +184,7 @@ static void xbox_session_change_game__session_has_game_and_game_is_not_null__new
     //  Arrange.
     mock_xbox_client_set_achievements(achievement_2);
 
-    xbox_session_t session = {
-        .game = game_outer_worlds_2,
-        .achievements = achievement_1
-    };
+    xbox_session_t session = {.game = game_outer_worlds_2, .achievements = achievement_1};
 
     game_t *game = game_fallout_4;
 
