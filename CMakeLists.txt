@@ -271,6 +271,35 @@ if(BUILD_TESTING)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
 
   # ------------------------------
+  # Helper function to link common dependencies to test targets
+  # ------------------------------
+  function(target_link_test_deps target_name)
+    # Link vendored deps
+    target_link_libraries(${target_name} PRIVATE cjson)
+    if(UNIX AND NOT APPLE)
+      target_link_libraries(${target_name} PRIVATE m)
+    endif()
+
+    # OpenSSL
+    if(TARGET OpenSSL::Crypto)
+      target_link_libraries(${target_name} PRIVATE OpenSSL::Crypto)
+      if(TARGET OpenSSL::SSL)
+        target_link_libraries(${target_name} PRIVATE OpenSSL::SSL)
+      endif()
+      # Ensure headers are available even if the imported targets don't propagate include dirs.
+      if(OPENSSL_INCLUDE_DIR)
+        target_include_directories(${target_name} PRIVATE ${OPENSSL_INCLUDE_DIR})
+      endif()
+    else()
+      target_include_directories(${target_name} PRIVATE ${OPENSSL_INCLUDE_DIR})
+      target_link_libraries(${target_name} PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+      if(OPENSSL_SSL_LIBRARY)
+        target_link_libraries(${target_name} PRIVATE ${OPENSSL_SSL_LIBRARY})
+      endif()
+    endif()
+  endfunction()
+
+  # ------------------------------
   # test_encoder
   # ------------------------------
   add_executable(
@@ -302,12 +331,6 @@ if(BUILD_TESTING)
   # Unity uses UNITY_INCLUDE_CONFIG_H to include a project-specific config header.
   target_compile_definitions(test_encoder PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_encoder PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_encoder PRIVATE m)
-  endif()
-
   if(WIN32)
     target_link_libraries(test_encoder PRIVATE Rpcrt4)
   else()
@@ -320,24 +343,7 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_encoder PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_encoder PRIVATE OpenSSL::SSL)
-    endif()
-
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_encoder PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_encoder PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_encoder)
 
   # ------------------------------
   # test_crypto
@@ -372,12 +378,6 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_crypto PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_crypto PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_crypto PRIVATE m)
-  endif()
-
   if(WIN32)
     target_link_libraries(test_crypto PRIVATE Rpcrt4)
   else()
@@ -389,23 +389,7 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # OpenSSL is required by test_crypto (EVP/BIO/BN/ECDSA helpers).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_crypto PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_crypto PRIVATE OpenSSL::SSL)
-    endif()
-
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_crypto PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_crypto PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_crypto)
 
   # ------------------------------
   # test_time
@@ -429,30 +413,7 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_time PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_time PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_time PRIVATE m)
-  endif()
-
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_time PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_time PRIVATE OpenSSL::SSL)
-    endif()
-
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_time PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_time PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_time)
 
   # ------------------------------
   # test_parsers
@@ -482,30 +443,7 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_parsers PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_parsers PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_parsers PRIVATE m)
-  endif()
-
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_parsers PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_parsers PRIVATE OpenSSL::SSL)
-    endif()
-
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_parsers PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_parsers PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_parsers)
 
   # ------------------------------
   # test_xbox_session
@@ -535,6 +473,8 @@ if(BUILD_TESTING)
   )
 
   target_compile_definitions(test_xbox_session PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  target_link_test_deps(test_xbox_session)
 
   # ------------------------------
   # Coverage target (must be after all test targets are defined)
