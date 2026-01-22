@@ -1,16 +1,11 @@
 #include "parsers.h"
 
 #include <obs-module.h>
-
 #include <cJSON.h>
 #include <cJSON_Utils.h>
 #include <string.h>
 #include <common/types.h>
 #include <diagnostics/log.h>
-
-#ifdef _WIN32
-#define strcasecmp _stricmp
-#endif
 
 //  --------------------------------------------------------------------------------------------------------------------
 //  Private functions

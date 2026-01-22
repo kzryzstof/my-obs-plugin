@@ -22,6 +22,20 @@ if (dst)					    \
 else						    \
     FREE(src);
 
+#if defined(_WIN32)
+#include <windows.h>
+static void sleep_ms(unsigned int ms) {
+    Sleep(ms);
+}
+
+#define strcasecmp _stricmp
+#else
+#include <unistd.h>
+static void sleep_ms(unsigned int ms) {
+    usleep(ms * 1000);
+}
+#endif
+
 typedef struct device {
     /* unique identifier for the device */
     const char     *uuid;

@@ -1,13 +1,10 @@
 #include "xbox/xbox_session.h"
 
+#include <obs-module.h>
 #include <diagnostics/log.h>
 
 #include "util/bmem.h"
 #include "xbox/xbox_client.h"
-
-#ifdef _WIN32
-#define strcasecmp _stricmp
-#endif
 
 //  --------------------------------------------------------------------------------------------------------------------
 //  Private functions.
