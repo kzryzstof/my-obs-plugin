@@ -1,5 +1,7 @@
 #include "xbox_identity.h"
+
 #include "memory.h"
+
 #include <obs-module.h>
 
 xbox_identity_t *copy_xbox_identity(const xbox_identity_t *identity) {
@@ -30,6 +32,6 @@ void free_identity(xbox_identity_t **identity) {
     free_memory((void *)&current->uhs);
     free_token((token_t **)&current->token);
 
-    free(current);
+    bfree(current);
     *identity = NULL;
 }

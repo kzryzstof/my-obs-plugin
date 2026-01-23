@@ -28,7 +28,7 @@ void free_gamerscore(gamerscore_t **gamerscore) {
     gamerscore_t *current = *gamerscore;
     free_unlocked_achievement(&current->unlocked_achievements);
 
-    free(current);
+    bfree(current);
     *gamerscore = NULL;
 }
 

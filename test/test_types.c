@@ -328,6 +328,70 @@ static void copy_gamerscore__gamerscore_is_not_null__copy_returned(void) {
     TEST_ASSERT_NULL(copy->unlocked_achievements->next->next);
 }
 
+static void copy_gamerscore__gamerscore_is_null__zero_returned(void) {
+    //  Arrange.
+    gamerscore_t *gamerscore = NULL;
+
+    //  Act.
+    int result = gamerscore_compute(gamerscore);
+
+    //  Assert.
+    TEST_ASSERT_EQUAL_INT(result, 0);
+}
+
+static void copy_gamerscore__no_unlocked_achievements__base_value_returned(void) {
+    //  Arrange.
+    gamerscore_t *gamerscore = bzalloc(sizeof(gamerscore_t));
+    gamerscore->base_value   = 400;
+
+    //  Act.
+    int result = gamerscore_compute(gamerscore);
+
+    //  Assert.
+    TEST_ASSERT_EQUAL_INT(result, 400);
+}
+
+static void copy_gamerscore__one_unlocked_achievement__total_returned(void) {
+    //  Arrange.
+    unlocked_achievement_t *unlocked_achievement = bzalloc(sizeof(unlocked_achievement_t));
+    unlocked_achievement->id                     = bstrdup("achievement-id");
+    unlocked_achievement->value                  = 200;
+    unlocked_achievement->next                   = NULL;
+
+    gamerscore_t *gamerscore          = bzalloc(sizeof(gamerscore_t));
+    gamerscore->base_value            = 400;
+    gamerscore->unlocked_achievements = unlocked_achievement;
+
+    //  Act.
+    int result = gamerscore_compute(gamerscore);
+
+    //  Assert.
+    TEST_ASSERT_EQUAL_INT(result, 600);
+}
+
+static void copy_gamerscore__two_unlocked_achievements__total_returned(void) {
+    //  Arrange.
+    unlocked_achievement_t *unlocked_achievement_2 = bzalloc(sizeof(unlocked_achievement_t));
+    unlocked_achievement_2->id                     = bstrdup("achievement-id-2");
+    unlocked_achievement_2->value                  = 200;
+    unlocked_achievement_2->next                   = NULL;
+
+    unlocked_achievement_t *unlocked_achievement_1 = bzalloc(sizeof(unlocked_achievement_t));
+    unlocked_achievement_1->id                     = bstrdup("achievement-id-1");
+    unlocked_achievement_1->value                  = 100;
+    unlocked_achievement_1->next                   = unlocked_achievement_2;
+
+    gamerscore_t *gamerscore          = bzalloc(sizeof(gamerscore_t));
+    gamerscore->base_value            = 400;
+    gamerscore->unlocked_achievements = unlocked_achievement_1;
+
+    //  Act.
+    int result = gamerscore_compute(gamerscore);
+
+    //  Assert.
+    TEST_ASSERT_EQUAL_INT(result, 700);
+}
+
 //  Tests unlocked_achievement.c
 
 static void free_unlocked_achievement__unlocked_achievement_is_null__null_unlocked_achievement_returned(void) {
@@ -435,6 +499,11 @@ int main(void) {
 
     RUN_TEST(copy_gamerscore__gamerscore_is_null__null_copy_returned);
     RUN_TEST(copy_gamerscore__gamerscore_is_not_null__copy_returned);
+
+    RUN_TEST(copy_gamerscore__gamerscore_is_null__zero_returned);
+    RUN_TEST(copy_gamerscore__no_unlocked_achievements__base_value_returned);
+    RUN_TEST(copy_gamerscore__one_unlocked_achievement__total_returned);
+    RUN_TEST(copy_gamerscore__two_unlocked_achievements__total_returned);
 
     //  Tests unlocked_achievement.c
     RUN_TEST(free_unlocked_achievement__unlocked_achievement_is_null__null_unlocked_achievement_returned);
