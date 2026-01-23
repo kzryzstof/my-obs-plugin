@@ -1,6 +1,6 @@
 #include "achievement.h"
 #include "memory.h"
-#include "test/stubs/util/bmem.h"
+#include <obs-module.h>
 
 media_asset_t *copy_media_asset(const media_asset_t *media_asset) {
     if (!media_asset) {

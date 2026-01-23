@@ -1,6 +1,6 @@
 #include "game.h"
 #include "memory.h"
-#include "test/stubs/util/bmem.h"
+#include <obs-module.h>
 
 game_t *copy_game(const game_t *game) {
     if (!game) {

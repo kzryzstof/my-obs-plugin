@@ -1,6 +1,6 @@
 #include "token.h"
 #include "memory.h"
-#include "test/stubs/util/bmem.h"
+#include <obs-module.h>
 #include <time.h>
 
 token_t *copy_token(const token_t *token) {

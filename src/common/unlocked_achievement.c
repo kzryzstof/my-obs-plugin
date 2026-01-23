@@ -1,6 +1,6 @@
 #include "unlocked_achievement.h"
 #include "memory.h"
-#include "test/stubs/util/bmem.h"
+#include <obs-module.h>
 
 unlocked_achievement_t *copy_unlocked_achievement(const unlocked_achievement_t *unlocked_achievement) {
 

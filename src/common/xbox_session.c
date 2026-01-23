@@ -1,6 +1,6 @@
 #include "common/xbox_session.h"
 
-#include "util/bmem.h"
+#include <obs-module.h>
 
 xbox_session_t *copy_xbox_session(xbox_session_t *session) {
 
