@@ -469,6 +469,7 @@ if(BUILD_TESTING)
     src/common/xbox_session.c
     test/stubs/bmem_stub.c
     test/stubs/xbox/xbox_client_stub.c
+    test/stubs/time/time_stub.c
   )
 
   add_test(NAME test_xbox_session COMMAND test_xbox_session)
@@ -505,7 +506,6 @@ if(BUILD_TESTING)
     src/common/token.c
     src/common/unlocked_achievement.c
     src/common/xbox_session.c
-    src/time/time.c
     test/stubs/bmem_stub.c
     test/stubs/xbox/xbox_client_stub.c
     test/stubs/time/time_stub.c
