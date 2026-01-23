@@ -21,7 +21,9 @@ unlocked_achievement_t *copy_unlocked_achievement(const unlocked_achievement_t *
         copy->id    = bstrdup(current->id);
         copy->value = current->value;
 
-        copy->next = previous_copy;
+        if (previous_copy) {
+            previous_copy->next = copy;
+        }
 
         previous_copy = copy;
         current       = next;
@@ -43,6 +45,7 @@ void free_unlocked_achievement(unlocked_achievement_t **unlocked_achievement) {
     unlocked_achievement_t *current = *unlocked_achievement;
 
     while (current) {
+
         unlocked_achievement_t *next = current->next;
 
         free_memory((void **)&current->id);

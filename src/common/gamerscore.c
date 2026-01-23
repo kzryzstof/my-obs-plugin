@@ -5,9 +5,15 @@
 
 gamerscore_t *copy_gamerscore(const gamerscore_t *gamerscore) {
 
-    gamerscore_t *copy          = bzalloc(sizeof(gamerscore_t));
+    if (!gamerscore) {
+        return NULL;
+    }
+
+    gamerscore_t *copy = bzalloc(sizeof(gamerscore_t));
+
     copy->base_value            = gamerscore->base_value;
     copy->unlocked_achievements = copy_unlocked_achievement(gamerscore->unlocked_achievements);
+
     return copy;
 }
 
