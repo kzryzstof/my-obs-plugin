@@ -6,12 +6,27 @@
 #include "util/bmem.h"
 #include "xbox/xbox_client.h"
 
+#include <errno.h>
+#include <stdlib.h>
+
 //  --------------------------------------------------------------------------------------------------------------------
 //  Private functions.
 //  --------------------------------------------------------------------------------------------------------------------
 
-static const achievement_t *find_achievement(const achievement_progress_t *progress,
-                                             const achievement_t          *achievements) {
+/**
+ * @brief Finds an achievement definition by id.
+ *
+ * Performs a case-insensitive search of the @p achievements linked list for an
+ * entry whose @c id matches @c progress->id.
+ *
+ * @param progress Progress item containing the achievement id to look up.
+ * @param achievements Head of the achievements linked list.
+ *
+ * @return Pointer to the matching achievement node within @p achievements, or
+ *         NULL if not found.
+ */
+static const achievement_t *find_achievement_by_id(const achievement_progress_t *progress,
+                                                   const achievement_t          *achievements) {
 
     const achievement_t *current = achievements;
 
@@ -31,6 +46,17 @@ static const achievement_t *find_achievement(const achievement_progress_t *progr
 //  Public functions.
 //  --------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @brief Determines whether the session is currently tracking the given game.
+ *
+ * Compares the game identifiers case-insensitively.
+ *
+ * @param session Session to inspect (may be NULL).
+ * @param game Game to compare against (may be NULL).
+ *
+ * @return True if both the session has a current game and its id matches
+ *         @p game->id, false otherwise.
+ */
 bool xbox_session_is_game_played(xbox_session_t *session, const game_t *game) {
 
     if (!session) {
@@ -46,6 +72,15 @@ bool xbox_session_is_game_played(xbox_session_t *session, const game_t *game) {
     return strcasecmp(current_game->id, game->id) == 0;
 }
 
+/**
+ * @brief Switches the session to a new game.
+ *
+ * Frees any existing achievements and game stored in the session. If @p game is
+ * non-NULL, stores a copy of it and fetches the associated achievements list.
+ *
+ * @param session Session to update (must not be NULL).
+ * @param game New game to set. If NULL, the session is cleared.
+ */
 void xbox_session_change_game(xbox_session_t *session, game_t *game) {
 
     if (!session) {
@@ -65,6 +100,22 @@ void xbox_session_change_game(xbox_session_t *session, game_t *game) {
     session->achievements = xbox_get_game_achievements(game);
 }
 
+/**
+ * @brief Applies an achievement progress update to the current session.
+ *
+ * Looks up the achievement by id and, if it has a reward, appends a new entry to
+ * the session's @c gamerscore->unlocked_achievements list.
+ *
+ * Current behavior/assumptions:
+ * - The function assumes the first reward's @c value is a numeric gamerscore
+ *   amount and will parse it via @c atoi().
+ * - No de-duplication is performed; callers should avoid sending the same unlock
+ *   multiple times.
+ *
+ * @param session Session to update (may be NULL).
+ * @param progress Progress update indicating which achievement was unlocked
+ *        (may be NULL).
+ */
 void xbox_session_unlock_achievement(const xbox_session_t *session, const achievement_progress_t *progress) {
 
     if (!session || !progress) {
@@ -73,17 +124,19 @@ void xbox_session_unlock_achievement(const xbox_session_t *session, const achiev
 
     /* TODO Let's make sure the progress is achieved */
 
-    const achievement_t *achievement = find_achievement(progress, session->achievements);
+    const achievement_t *achievement = find_achievement_by_id(progress, session->achievements);
 
     if (!achievement) {
-        obs_log(LOG_ERROR, "Failed to unlock achievement %d: not found in the game's achievements", progress->id);
+        obs_log(LOG_ERROR,
+                "Failed to unlock achievement %s: not found in the game's achievements",
+                progress->id ? progress->id : "(null)");
         return;
     }
 
     const reward_t *reward = achievement->rewards;
 
     if (!reward) {
-        obs_log(LOG_ERROR, "Failed to unlock achievement %d: no reward found", progress->id);
+        obs_log(LOG_ERROR, "Failed to unlock achievement %s: no reward found", progress->id ? progress->id : "(null)");
         return;
     }
 
@@ -93,7 +146,24 @@ void xbox_session_unlock_achievement(const xbox_session_t *session, const achiev
 
     unlocked_achievement_t *unlocked_achievement = bzalloc(sizeof(unlocked_achievement_t));
     unlocked_achievement->id                     = bstrdup(progress->id);
-    unlocked_achievement->value                  = atoi(reward->value);
+
+    long  parsed_value = 0;
+    char *endptr       = NULL;
+    errno              = 0;
+
+    if (reward->value) {
+        parsed_value = strtol(reward->value, &endptr, 10);
+    }
+
+    if (errno != 0 || endptr == reward->value || (endptr && *endptr != '\0')) {
+        obs_log(LOG_WARNING,
+                "Unable to parse gamerscore value '%s' for achievement %s; defaulting to 0",
+                reward->value ? reward->value : "(null)",
+                progress->id ? progress->id : "(null)");
+        parsed_value = 0;
+    }
+
+    unlocked_achievement->value = (int)parsed_value;
 
     unlocked_achievement_t *unlocked_achievements = gamerscore->unlocked_achievements;
 

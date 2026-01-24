@@ -199,8 +199,14 @@ The plugin implements the Xbox Live authentication flow with Proof-of-Possession
 
 3. Build:
    ```bash
-   cmake --build build_macos_dev --config Debug
+   xcodebuild -configuration RelWithDebInfo -scheme achievements-tracker -parallelizeTargets -destination "generic/platform=macOS,name=Any Mac"
    ```
+   
+Or maybe:
+
+    ```bash
+    cmake --build build_macos_dev --config Debug
+    ```
 
 4. The plugin bundle will be at:
    ```
@@ -213,7 +219,7 @@ The plugin implements the Xbox Live authentication flow with Proof-of-Possession
       ~/Library/Application\ Support/obs-studio/plugins/
    ```
 
-#### Windows
+#### Windows (Untested)
 
 1. Install dependencies via vcpkg:
    ```powershell
@@ -226,7 +232,7 @@ The plugin implements the Xbox Live authentication flow with Proof-of-Possession
    cmake --build build_windows --config Release
    ```
 
-#### Linux
+#### Linux (Untested)
 
 1. Install dependencies:
    ```bash
@@ -263,7 +269,7 @@ cmake --build build_macos --config RelWithDebInfo
 ctest --test-dir build_macos -C RelWithDebInfo --output-on-failure
 ```
 
-### Windows / Linux
+### Windows / Linux (Untested)
 
 ```bash
 cmake -S . -B build -DBUILD_TESTING=ON
@@ -271,7 +277,7 @@ cmake --build build --config Debug
 ctest --test-dir build -C Debug --output-on-failure
 ```
 
-### Running Individual Tests
+### Running Individual Tests (Untested)
 
 ```bash
 # Test Base64 encoding
@@ -287,27 +293,11 @@ cmake --build build_macos_dev --target test_time --config Debug
 ./build_macos_dev/Debug/test_time
 ```
 
-{
-"xuid": "2533274953419891",
-"state": "Offline",
-"lastSeen": {
-"deviceType": "iOS",
-"titleId": "328178078",
-"titleName": "Xbox App",
-"timestamp": "2026-01-15T01:08:48.1653141"
-}
-}
-
 ---
-
-## License
-
-[Your License Here]
 
 ## References
 
 https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/gamerpic/atoc-reference-gamerpic
-GET https://titlehub.xboxlive.com/users/xuid({xuid})/titles/titleid({titleId})/decoration/Image
 https://deepwiki.com/microsoft/xbox-live-api/5-real-time-activity-system#resource-uri-format
 
 ## Contributing
@@ -317,15 +307,3 @@ Contributions are welcome! Please open an issue or submit a pull request.
 ## Support
 
 For issues, questions, or feature requests, please visit the [GitHub Issues](https://github.com/your-org/achievements-tracker-plugin/issues) page.
-
-
-
-NOTE
-
-
-//[3,0,{"serviceConfigId":"00000000-0000-0000-0000-00007972ac43","progression":[{"id":"1","requirements":[{"id":"00000000-0000-0000-0000-000000000000","current":"100","target":"100","operationType":"Sum","valueType":"Integer","ruleParticipationType":"Individual"}],"progressState":"Achieved","timeUnlocked":"2026-01-18T02:48:21.707Z"}],"contractVersion":1}]
-//[3,0,{"devicetype":"XboxOne","titleid":0,"string1":"Vu en dernier il y a 1 min : Application
-// Xbox","string2":"","presenceState":"Offline","presenceText":"Vu en dernier il y a 1 min : Application
-// Xbox","presenceDetails":[{"isBroadcasting":false,"device":"iOS","presenceText":"Vu en dernier il y a 1 min :
-// Application
-// Xbox","state":"LastSeen","titleId":"328178078","isGame":false,"isPrimary":true,"richPresenceText":""}],"xuid":2533274953419891}]

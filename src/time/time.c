@@ -4,6 +4,17 @@
 #include <stddef.h>
 #include <string.h>
 
+/**
+ * @brief Parses exactly @p digits decimal digits from a string.
+ *
+ * Advances @p p by @p digits characters if parsing succeeds.
+ *
+ * @param[in,out] p Pointer to the current parse position.
+ * @param digits Number of digits to parse.
+ * @param[out] out_value Parsed integer value.
+ *
+ * @return True if @p digits digits were successfully parsed, false otherwise.
+ */
 static bool parse_n_digits(const char **p, int digits, int *out_value) {
     int v = 0;
 
@@ -19,11 +30,26 @@ static bool parse_n_digits(const char **p, int digits, int *out_value) {
     return true;
 }
 
+/**
+ * @brief Determines whether a given year is a leap year in the Gregorian calendar.
+ *
+ * @param y Year (e.g. 2024).
+ *
+ * @return True for leap years, false otherwise.
+ */
 static bool is_leap_year(int y) {
     /* Gregorian calendar rules */
     return (y % 4 == 0) && ((y % 100 != 0) || (y % 400 == 0));
 }
 
+/**
+ * @brief Returns the number of days for a given month of a given year.
+ *
+ * @param y Year.
+ * @param m Month in range 1..12.
+ *
+ * @return Number of days in that month, or 0 if the month is out of range.
+ */
 static int get_days_in_month(int y, int m) {
     static const int dpm[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -36,9 +62,17 @@ static int get_days_in_month(int y, int m) {
     return dpm[m - 1];
 }
 
-/*
- * Convert a civil date to days since Unix epoch (1970-01-01).
- * Based on Howard Hinnant's algorithm (public domain-like), implemented standalone.
+/**
+ * @brief Converts a civil date (Y-M-D) to days since the Unix epoch.
+ *
+ * Uses a well-known algorithm by Howard Hinnant (public domain-like reference
+ * implementation) to compute the day count relative to 1970-01-01.
+ *
+ * @param y Year.
+ * @param m Month (1..12).
+ * @param d Day of month (1..31).
+ *
+ * @return Days since 1970-01-01 (can be negative for pre-epoch dates).
  */
 static int64_t get_days_from_civil(int y, unsigned m, unsigned d) {
     y -= m <= 2;
@@ -51,10 +85,36 @@ static int64_t get_days_from_civil(int y, unsigned m, unsigned d) {
     return days_1970;
 }
 
+/**
+ * @brief Returns the current time as seconds since the Unix epoch.
+ *
+ * @return Current Unix timestamp in seconds.
+ */
 time_t now() {
     return time(NULL);
 }
 
+/**
+ * @brief Parses an ISO-8601 UTC timestamp and converts it to Unix seconds.
+ *
+ * Supported formats:
+ * - `YYYY-MM-DDTHH:MM:SSZ`
+ * - `YYYY-MM-DDTHH:MM:SS.sssZ` with up to 9 fractional digits.
+ *
+ * Fractional seconds are returned as nanoseconds in @p out_fraction_ns.
+ *
+ * Notes:
+ * - The parser is strict: it requires a trailing `Z` and rejects extra
+ *   characters.
+ * - Seconds in the range 0..60 are accepted (to allow leap seconds), but values
+ *   > 60 are rejected.
+ *
+ * @param iso8601 Input timestamp string (UTC).
+ * @param[out] out_unix_seconds Output Unix timestamp in seconds.
+ * @param[out] out_fraction_ns Output fractional part in nanoseconds.
+ *
+ * @return True on success, false on parse/validation failure.
+ */
 bool time_iso8601_utc_to_unix(const char *iso8601, int64_t *out_unix_seconds, int32_t *out_fraction_ns) {
     if (!iso8601 || !out_unix_seconds || !out_fraction_ns)
         return false;

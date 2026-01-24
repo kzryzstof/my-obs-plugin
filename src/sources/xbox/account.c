@@ -1,11 +1,7 @@
 #include "sources/xbox/account.h"
 
-#include <graphics/graphics.h>
-#include <graphics/image-file.h>
 #include <obs-module.h>
 #include <diagnostics/log.h>
-#include <curl/curl.h>
-#include <inttypes.h>
 
 #include "io/state.h"
 #include "oauth/xbox-live.h"
@@ -18,6 +14,11 @@ typedef struct xbox_account_source {
     uint32_t      height;
 } xbox_account_source_t;
 
+/**
+ * @brief Refreshes the OBS properties UI for a source (runs on the UI thread).
+ *
+ * @param data The @c obs_source_t* whose properties should be refreshed.
+ */
 static void refresh_properties_on_main(void *data) {
     obs_source_t *source = data;
 
@@ -25,6 +26,14 @@ static void refresh_properties_on_main(void *data) {
         obs_source_update_properties(source);
 }
 
+/**
+ * @brief Schedules a refresh of the source properties UI.
+ *
+ * This queues a UI task so OBS will call @c source_get_properties() again.
+ * Safe to call from worker threads.
+ *
+ * @param data Pointer to the @c xbox_account_source_t instance.
+ */
 static void schedule_refresh_properties(void *data) {
     xbox_account_source_t *s = data;
 
@@ -35,6 +44,13 @@ static void schedule_refresh_properties(void *data) {
     obs_queue_task(OBS_TASK_UI, refresh_properties_on_main, s->source, false);
 }
 
+/**
+ * @brief OBS properties callback for the "Sign out" button.
+ *
+ * Clears cached state (tokens, identity, etc.) and refreshes the UI.
+ *
+ * @return Always true to indicate the button click was handled.
+ */
 static bool on_sign_out_clicked(obs_properties_t *props, obs_property_t *property, void *data) {
     UNUSED_PARAMETER(props);
     UNUSED_PARAMETER(property);
@@ -47,21 +63,21 @@ static bool on_sign_out_clicked(obs_properties_t *props, obs_property_t *propert
     return true;
 }
 
+/**
+ * @brief Completion callback invoked after Xbox Live authentication.
+ *
+ * Refreshes the properties UI so the signed-in state is reflected.
+ */
 static void on_xbox_signed_in(void *data) {
     schedule_refresh_properties(data);
 }
 
 /**
- * Called when the Sign-in button is called.
+ * @brief OBS properties callback for the "Sign in" button.
  *
- * The method triggers the device oauth flow to register the device with Xbox
- * live.
+ * Starts the Xbox Live device-code authentication flow.
  *
- * @param props
- * @param property
- * @param data
- *
- * @return
+ * @return True if the authentication flow was successfully started.
  */
 static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *property, void *data) {
     UNUSED_PARAMETER(props);
@@ -78,6 +94,11 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
     return true;
 }
 
+/**
+ * @brief Callback invoked when the monitor detects a game is being played.
+ *
+ * Currently logs the game name/id.
+ */
 static void on_xbox_game_played(const game_t *game) {
     char text[4096];
     snprintf(text, 4096, "Playing game '%s' (%s)", game->title, game->id);
@@ -88,6 +109,13 @@ static void on_xbox_game_played(const game_t *game) {
 //	Source callbacks
 //  --------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @brief OBS source create callback.
+ *
+ * Allocates and initializes the per-source context.
+ *
+ * @return Newly allocated @c xbox_account_source_t instance.
+ */
 static void *on_source_create(obs_data_t *settings, obs_source_t *source) {
 
     UNUSED_PARAMETER(settings);
@@ -100,6 +128,11 @@ static void *on_source_create(obs_data_t *settings, obs_source_t *source) {
     return s;
 }
 
+/**
+ * @brief OBS source destroy callback.
+ *
+ * Frees the per-source context.
+ */
 static void on_source_destroy(void *data) {
 
     xbox_account_source_t *source = data;
@@ -111,26 +144,44 @@ static void on_source_destroy(void *data) {
     bfree(source);
 }
 
+/**
+ * @brief OBS source callback returning the current width.
+ */
 static uint32_t source_get_width(void *data) {
     const xbox_account_source_t *s = data;
     return s->width;
 }
 
+/**
+ * @brief OBS source callback returning the current height.
+ */
 static uint32_t source_get_height(void *data) {
     const xbox_account_source_t *s = data;
     return s->height;
 }
 
+/**
+ * @brief OBS source update callback.
+ */
 static void on_source_update(void *data, obs_data_t *settings) {
     UNUSED_PARAMETER(data);
     UNUSED_PARAMETER(settings);
 }
 
+/**
+ * @brief OBS source video render callback.
+ */
 static void on_source_video_render(void *data, gs_effect_t *effect) {
     UNUSED_PARAMETER(data);
     UNUSED_PARAMETER(effect);
 }
 
+/**
+ * @brief OBS source callback providing the properties UI.
+ *
+ * Displays sign-in status, gamerscore, and current game info (if available).
+ * Provides sign-in / sign-out buttons.
+ */
 static obs_properties_t *source_get_properties(void *data) {
     UNUSED_PARAMETER(data);
 
@@ -148,7 +199,7 @@ static obs_properties_t *source_get_properties(void *data) {
         xbox_fetch_gamerscore(&gamerscore);
 
         char gamerscore_text[4096];
-        snprintf(gamerscore_text, 4096, "Gamerscore %" PRId64, gamerscore);
+        snprintf(gamerscore_text, 4096, "Gamerscore %lld", (long long)gamerscore);
 
         obs_properties_add_text(p, "connected_status_info", status, OBS_TEXT_INFO);
         obs_properties_add_text(p, "gamerscore_info", gamerscore_text, OBS_TEXT_INFO);
@@ -170,6 +221,9 @@ static obs_properties_t *source_get_properties(void *data) {
     return p;
 }
 
+/**
+ * @brief OBS source display name.
+ */
 static const char *source_get_name(void *unused) {
     UNUSED_PARAMETER(unused);
 
@@ -200,12 +254,11 @@ static const struct obs_source_info *xbox_source_get(void) {
 //  --------------------------------------------------------------------------------------------------------------------
 
 /**
- * Registers the Xbox account source with the system.
+ * @brief Registers the Xbox Account source with OBS and starts monitoring.
  *
- * This function registers the Xbox account source and initializes monitoring
- * for game activity and connection status if the user is already logged in.
- * The monitoring callbacks are set up to handle events and log the monitoring
- * status.
+ * Registers the source so it is available in OBS. Also subscribes to the "game
+ * played" monitor callback. If an identity is already present in state, starts
+ * background monitoring immediately.
  */
 void xbox_account_source_register(void) {
 
