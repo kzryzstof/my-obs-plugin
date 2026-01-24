@@ -1,94 +1,124 @@
 #pragma once
 
-#include <stdbool.h>
 #include <openssl/evp.h>
 #include <stdint.h>
+
+// Umbrella header: the includes below intentionally re-export common public types
+// used across the plugin. Some may look unused within this file, but are kept so
+// consumers can include a single header.
+#include "common/memory.h"
+#include "common/achievement.h"
+#include "common/achievement_progress.h"
+#include "common/device.h"
+#include "common/game.h"
+#include "common/gamerscore.h"
+#include "common/token.h"
+#include "common/unlocked_achievement.h"
+#include "common/xbox_identity.h"
+#include "common/xbox_session.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define FREE(p)	\
-if (p)			\
-    bfree(p);
-
-#define FREE_JSON(p)	\
-if (p)			        \
+/**
+ * @brief Frees a cJSON object.
+ *
+ * Convenience macro around @c cJSON_Delete().
+ *
+ * Notes:
+ * - Safe to pass NULL.
+ * - Does not set the caller pointer to NULL.
+ *
+ * @param p Pointer to a cJSON object.
+ */
+#define FREE_JSON(p)    \
+if (p)                  \
     cJSON_Delete(p);
 
-#define COPY_OR_FREE(src, dst)	\
-if (dst)					    \
-    *dst = src;				    \
-else						    \
+/**
+ * @brief Assigns ownership of an allocated pointer to an output parameter or frees it.
+ *
+ * If @p dst is non-NULL, assigns @p src into @c *dst. Otherwise frees @p src
+ * using @ref FREE.
+ *
+ * Typical use: return a freshly allocated object either via an out-parameter or
+ * by cleaning it up when the caller isn't interested.
+ *
+ * @param src Pointer to pass to the caller or free.
+ * @param dst Address of the destination pointer, or NULL.
+ */
+#define COPY_OR_FREE(src, dst) \
+if (dst)                      \
+    *dst = src;               \
+else                          \
     FREE(src);
 
-typedef struct device {
-    /* unique identifier for the device */
-    const char     *uuid;
-    const char     *serial_number;
-    /* proof of ownership key pair */
-    const EVP_PKEY *keys;
-} device_t;
+#if defined(_WIN32)
+#include <windows.h>
 
-typedef struct token {
-    const char *value;
-    /* unix timestamp */
-    int64_t     expires;
-} token_t;
+/**
+ * @brief Sleeps for a number of milliseconds.
+ *
+ * Cross-platform helper used by this plugin.
+ *
+ * @param ms Duration in milliseconds.
+ */
+static void sleep_ms(unsigned int ms) {
+    Sleep(ms);
+}
 
+/**
+ * @brief Case-insensitive string comparison.
+ *
+ * Alias to Windows' @c _stricmp to provide POSIX-compatible @c strcasecmp.
+ */
+#define strcasecmp _stricmp
+#else
+#include <unistd.h>
+
+/**
+ * @brief Sleeps for a number of milliseconds.
+ *
+ * Cross-platform helper used by this plugin.
+ *
+ * @param ms Duration in milliseconds.
+ */
+static void sleep_ms(unsigned int ms) {
+    usleep(ms * 1000);
+}
+#endif
+
+/**
+ * @brief Result type for Xbox Live authentication.
+ */
 typedef struct xbox_live_authenticate_result {
+    /** Human-readable error message when authentication fails, otherwise NULL. */
     const char *error_message;
 } xbox_live_authenticate_result_t;
 
-typedef struct xbox_identity {
-    const char    *gamertag;
-    const char    *xid;
-    const char    *uhs;
-    const token_t *token;
-} xbox_identity_t;
-
-typedef struct game {
-    const char *id;
-    const char *title;
-} game_t;
-
+/**
+ * @brief Configuration used by the gamerscore overlay/renderer.
+ */
 typedef struct gamerscore_configuration {
+    /** Path to the font sheet asset. */
     const char *font_sheet_path;
+    /** Horizontal pixel offset. */
     uint32_t    offset_x;
+    /** Vertical pixel offset. */
     uint32_t    offset_y;
+    /** Single glyph width in pixels. */
     uint32_t    font_width;
+    /** Single glyph height in pixels. */
     uint32_t    font_height;
 } gamerscore_configuration_t;
 
-//[3,0,{"serviceConfigId":"00000000-0000-0000-0000-00007972ac43","progression":[{"id":"1","requirements":[{"id":"00000000-0000-0000-0000-000000000000","current":"100","target":"100","operationType":"Sum","valueType":"Integer","ruleParticipationType":"Individual"}],"progressState":"Achieved","timeUnlocked":"2026-01-18T02:48:21.707Z"}],"contractVersion":1}]
-//[3,0,{"devicetype":"XboxOne","titleid":0,"string1":"Vu en dernier il y a 1 min : Application
-// Xbox","string2":"","presenceState":"Offline","presenceText":"Vu en dernier il y a 1 min : Application
-// Xbox","presenceDetails":[{"isBroadcasting":false,"device":"iOS","presenceText":"Vu en dernier il y a 1 min :
-// Application
-// Xbox","state":"LastSeen","titleId":"328178078","isGame":false,"isPrimary":true,"richPresenceText":""}],"xuid":2533274953419891}]
-typedef struct media_asset {
-    const char               *url;
-    const struct media_asset *next;
-} media_asset_t;
-
-typedef struct reward {
-    const char          *value;
-    const struct reward *next;
-} reward_t;
-
-typedef struct achievement {
-    const char          *id;
-    const char          *service_config_id;
-    const char          *name;
-    const char          *progress_state;
-    const media_asset_t *media_assets;
-    bool                 is_secret;
-    const char          *description;
-    const char          *locked_description;
-    const media_asset_t *rewards;
-} achievement_t;
-
-bool is_token_expired(const token_t *token);
+/**
+ * @brief Dummy type to ensure OpenSSL public types are available to consumers.
+ *
+ * This header intentionally re-exports OpenSSL's @c EVP_PKEY type.
+ */
+typedef EVP_PKEY *types_evp_pkey_t;
 
 #ifdef __cplusplus
 }

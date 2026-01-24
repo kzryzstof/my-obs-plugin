@@ -6,6 +6,7 @@
 #include "io/state.h"
 #include "net/http/http.h"
 #include "net/json/json.h"
+#include "text/parsers.h"
 
 #include <cJSON.h>
 #include <cJSON_Utils.h>
@@ -15,6 +16,7 @@
 #define XBOX_PROFILE_CONTRACT_VERSION      "2"
 #define GAMERSCORE_SETTING                 "Gamerscore"
 #define XBOX_TITLE_HUB                     "https://titlehub.xboxlive.com/users/xuid(%s)/titles/titleId(%s)/decoration/image"
+#define XBOX_ACHIEVEMENTS_ENDPOINT         "https://achievements.xboxlive.com/users/xuid(%s)/achievements?titleId=%s"
 
 #define XBOX_GAME_COVER_DISPLAY_IMAGE      "/titles/0/displayImage"
 #define XBOX_GAME_COVER_TYPE               "/titles/0/images/%d/type"
@@ -22,6 +24,21 @@
 #define XBOX_GAME_COVER_POSTER_TYPE        "poster"
 #define XBOX_GAME_COVER_BOX_ART_TYPE        "boxart"
 
+/**
+ * @brief Fetches the cover image URL for a given game.
+ *
+ * Calls the Xbox TitleHub decoration/image endpoint and attempts to extract a
+ * poster or box art image URL from the response. If no such image is available,
+ * falls back to the display image URL.
+ *
+ * Requires an authenticated Xbox identity to be present in the persistent state.
+ *
+ * @param game Game to fetch the cover for (may be NULL).
+ *
+ * @return Newly allocated URL string, or NULL on error / if not available.
+ *         The caller owns the returned string and must free it with @c bfree()
+ *         (or @ref free_memory).
+ */
 char *xbox_get_game_cover(const game_t *game) {
 
     char *display_image_url = NULL;
@@ -132,8 +149,16 @@ cleanup:
     return display_image_url;
 }
 
-/*
- *  https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/live/rest/uri/profilev2/uri-usersbatchprofilesettingspost
+/**
+ * @brief Fetches the current user's gamerscore.
+ *
+ * Performs a profile batch settings call and extracts the "Gamerscore" setting.
+ * Requires an authenticated Xbox identity to be present in the persistent state.
+ *
+ * @param[out] out_gamerscore Output location for the gamerscore value.
+ *
+ * @return True if the gamerscore was successfully retrieved and parsed; false
+ *         otherwise.
  */
 bool xbox_fetch_gamerscore(int64_t *out_gamerscore) {
 
@@ -213,13 +238,27 @@ bool xbox_fetch_gamerscore(int64_t *out_gamerscore) {
     }
 
 cleanup:
-    FREE(json);
-    FREE(gamerscore_text);
+    /*FREE(json);*/
+    /*FREE(gamerscore_text);*/
     /*FREE(end);*/
 
     return result;
 }
 
+/**
+ * @brief Retrieves the game currently being played by the authenticated user.
+ *
+ * Calls the Xbox Presence endpoint and searches for the first non-"Home" title
+ * with state "Active".
+ *
+ * Notes:
+ * - Requires an authenticated Xbox identity to be present in the persistent state.
+ * - The returned @c game_t owns its @c id and @c title strings.
+ * - The caller must free the returned game with @ref free_game.
+ *
+ * @return Newly allocated @c game_t on success, or NULL if the user is offline,
+ *         no active game is found, or on error.
+ */
 game_t *xbox_get_current_game(void) {
 
     obs_log(LOG_INFO, "Retrieving current game");
@@ -328,128 +367,86 @@ game_t *xbox_get_current_game(void) {
         goto cleanup;
     }
 
-    obs_log(LOG_INFO, "Game is %s (%s)", current_game_title, current_game_id);
+    obs_log(LOG_INFO, "Game is '%s' (%s)", current_game_title, current_game_id);
 
     game        = bzalloc(sizeof(game_t));
     game->id    = strdup(current_game_id);
     game->title = strdup(current_game_title);
 
 cleanup:
-    FREE(response_json);
+    // FREE(response_json);
 
     return game;
 }
 
-char *xbox_fetch_achievements_json(long *out_http_code) {
-    if (out_http_code)
-        *out_http_code = 0;
+/**
+ * @brief Retrieves the list of achievements for a game.
+ *
+ * Calls the achievements endpoint for the authenticated user and parses the
+ * response JSON into an @c achievement_t linked list.
+ *
+ * Requires an authenticated Xbox identity to be present in the persistent state.
+ *
+ * @param game Game for which achievements should be fetched (may be NULL).
+ *
+ * @return Head of a newly allocated linked list of achievements, or NULL on
+ *         error. The caller owns the returned list and must free it with
+ *         @ref free_achievement.
+ */
+achievement_t *xbox_get_game_achievements(const game_t *game) {
 
-    return NULL;
-    // const char *xid  = get_xid();
-    // const char *auth = get_xsts_token();
-    // if (!xid || !*xid || !auth || !*auth) {
-    //     obs_log(LOG_WARNING, "Missing XUID/XSTS token; user not signed in?");
-    //     return NULL;
-    // }
-    //
-    // char url[512];
-    // snprintf(url,
-    //          sizeof(url),
-    //          "https://achievements.xboxlive.com/users/xuid(%s)/achievements?titleId=1879711255&maxItems=1000",
-    //          xid);
-    //
-    // char headers[2048];
-    // snprintf(headers,
-    //          sizeof(headers),
-    //          "Authorization: %s\n"
-    //          "Accept: application/json\n"
-    //          "Accept-Language: en-CA\n"
-    //          "Content-Type: application/json\n"
-    //          "x-xbl-contract-version: 2\n",
-    //          auth);
-    //
-    // long  code = 0;
-    // char *json = http_get(url, headers, NULL, &code);
-    // if (out_http_code)
-    //     *out_http_code = code;
-    //
-    // if (!json) {
-    //     obs_log(LOG_WARNING, "Achievements GET failed (no response)");
-    //     return NULL;
-    // }
-    // if (code < 200 || code >= 300) {
-    //     obs_log(LOG_WARNING, "Achievements GET HTTP %ld: %s", code, json);
-    //     /* Return body to caller anyway for debugging */
-    // }
-    //
-    // return json;
-}
-
-char *xbox_fetch_presence_json(long *out_http_code) {
-
-    if (out_http_code)
-        *out_http_code = 0;
-
-    /*
-    const char *xid  = get_xid();
-    const char *auth = get_xsts_token();
-
-    if (!xid || !*xid || !auth || !*auth) {
-        obs_log(LOG_WARNING, "Missing XUID/XSTS token; user not signed in?");
+    if (!game) {
         return NULL;
     }
 
-    char url[512];
-    snprintf(url, sizeof(url), "https://userpresence.xboxlive.com/users/xuid(%s)/richpresence", xid);
+    xbox_identity_t *identity = state_get_xbox_identity();
 
-    char headers[2048];
+    if (!identity) {
+        obs_log(LOG_ERROR, "Failed to fetch the game's achievements: no identity found");
+        return NULL;
+    }
+
+    achievement_t *achievements  = NULL;
+    char          *response_json = NULL;
+
+    char headers[4096];
     snprintf(headers,
              sizeof(headers),
-             "Authorization: %s\n"
-             "Accept: application/json\n"
-             "Accept-Language: en-CA\n"
-             "Content-Type: application/json\n"
-             "x-xbl-contract-version: 2\n",
-             auth);
+             "Authorization: XBL3.0 x=%s;%s\r\n"
+             "x-xbl-contract-version: %s\r\n",
+             identity->uhs,
+             identity->token->value,
+             XBOX_PROFILE_CONTRACT_VERSION);
 
-    long  code = 0;
-    char *json = http_get(url, headers, NULL, &code);
-    if (out_http_code)
-        *out_http_code = code;
+    obs_log(LOG_DEBUG, "Headers: %s", headers);
 
-    obs_log(LOG_WARNING, "Presence %s", json);
+    /*
+     * Sends the request
+     */
+    char presence_url[512];
+    snprintf(presence_url, sizeof(presence_url), XBOX_ACHIEVEMENTS_ENDPOINT, identity->xid, game->id);
 
-    if (!json) {
-        obs_log(LOG_WARNING, "Presence GET failed (no response)");
-        return NULL;
+    long http_code = 0;
+    response_json  = http_get(presence_url, headers, NULL, &http_code);
+
+    if (http_code < 200 || http_code >= 300) {
+        obs_log(LOG_ERROR, "Failed to fetch the games achievements: received status code %d", http_code);
+        goto cleanup;
     }
 
-    if (code < 200 || code >= 300)
-        obs_log(LOG_WARNING, "Presence GET HTTP %ld: %s", code, json);
-    return json;*/
-    return NULL;
-}
+    if (!response_json) {
+        obs_log(LOG_ERROR, "Failed to fetch the games achievements: received no response");
+        goto cleanup;
+    }
 
-/*
-*xuid": "2533274953419891",
-"state": "Online",
-"devices": [
-{
-"type": "Scarlett",
-"titles": [
-{
-"id": "750323071",
-"name": "Home",
-"placement": "Background",
-"state": "Active",
-"lastModified": "2026-01-05T01:52:35.0621013"
-},
-{
-"id": "1879711255",
-"name": "The Outer Worlds 2",
-"placement": "Full",
-"state": "Active",
-"lastModified": "2026-01-05T01:52:35.0621013"
+    obs_log(LOG_DEBUG, "Response: %s", response_json);
+
+    achievements = parse_achievements(response_json);
+
+    obs_log(LOG_INFO, "Received %d achievements for game %s", count_achievements(achievements), game->title);
+
+cleanup:
+    FREE(response_json);
+
+    return achievements;
 }
-]
-},*/

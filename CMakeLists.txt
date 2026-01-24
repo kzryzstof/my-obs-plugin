@@ -235,7 +235,6 @@ target_sources(
     src/sources/xbox/game_cover.c
     src/sources/xbox/gamerscore.c
     src/crypto/crypto.c
-    src/common/types.c
     src/drawing/image.c
     src/drawing/text.c
     src/net/browser/browser.c
@@ -243,6 +242,7 @@ target_sources(
     src/net/json/json.c
     src/oauth/util.c
     src/oauth/xbox-live.c
+    src/xbox/xbox_session.c
     src/xbox/xbox_client.c
     src/xbox/xbox_monitor.c
     src/io/state.c
@@ -250,6 +250,14 @@ target_sources(
     src/util/uuid.c
     src/text/parsers.c
     src/time/time.c
+    src/common/achievement.c
+    src/common/achievement_progress.c
+    src/common/game.c
+    src/common/gamerscore.c
+    src/common/token.c
+    src/common/unlocked_achievement.c
+    src/common/xbox_identity.c
+    src/common/xbox_session.c
 )
 
 # Link vendored deps
@@ -268,6 +276,35 @@ include(CTest)
 if(BUILD_TESTING)
   # Unity test framework (vendored via FetchContent)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/FetchUnity.cmake)
+
+  # ------------------------------
+  # Helper function to link common dependencies to test targets
+  # ------------------------------
+  function(target_link_test_deps target_name)
+    # Link vendored deps
+    target_link_libraries(${target_name} PRIVATE cjson)
+    if(UNIX AND NOT APPLE)
+      target_link_libraries(${target_name} PRIVATE m)
+    endif()
+
+    # OpenSSL
+    if(TARGET OpenSSL::Crypto)
+      target_link_libraries(${target_name} PRIVATE OpenSSL::Crypto)
+      if(TARGET OpenSSL::SSL)
+        target_link_libraries(${target_name} PRIVATE OpenSSL::SSL)
+      endif()
+      # Ensure headers are available even if the imported targets don't propagate include dirs.
+      if(OPENSSL_INCLUDE_DIR)
+        target_include_directories(${target_name} PRIVATE ${OPENSSL_INCLUDE_DIR})
+      endif()
+    else()
+      target_include_directories(${target_name} PRIVATE ${OPENSSL_INCLUDE_DIR})
+      target_link_libraries(${target_name} PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
+      if(OPENSSL_SSL_LIBRARY)
+        target_link_libraries(${target_name} PRIVATE ${OPENSSL_SSL_LIBRARY})
+      endif()
+    endif()
+  endfunction()
 
   # ------------------------------
   # test_encoder
@@ -301,12 +338,6 @@ if(BUILD_TESTING)
   # Unity uses UNITY_INCLUDE_CONFIG_H to include a project-specific config header.
   target_compile_definitions(test_encoder PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_encoder PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_encoder PRIVATE m)
-  endif()
-
   if(WIN32)
     target_link_libraries(test_encoder PRIVATE Rpcrt4)
   else()
@@ -319,24 +350,7 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_encoder PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_encoder PRIVATE OpenSSL::SSL)
-    endif()
-
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_encoder PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_encoder PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_encoder PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_encoder)
 
   # ------------------------------
   # test_crypto
@@ -371,12 +385,6 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_crypto PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_crypto PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_crypto PRIVATE m)
-  endif()
-
   if(WIN32)
     target_link_libraries(test_crypto PRIVATE Rpcrt4)
   else()
@@ -388,23 +396,7 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # OpenSSL is required by test_crypto (EVP/BIO/BN/ECDSA helpers).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_crypto PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_crypto PRIVATE OpenSSL::SSL)
-    endif()
-
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_crypto PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_crypto PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_crypto PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_crypto)
 
   # ------------------------------
   # test_time
@@ -428,30 +420,7 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_time PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_time PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_time PRIVATE m)
-  endif()
-
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_time PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_time PRIVATE OpenSSL::SSL)
-    endif()
-
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_time PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_time PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_time PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
-  endif()
+  target_link_test_deps(test_time)
 
   # ------------------------------
   # test_parsers
@@ -481,35 +450,90 @@ if(BUILD_TESTING)
 
   target_compile_definitions(test_parsers PRIVATE UNITY_INCLUDE_CONFIG_H)
 
-  # Link vendored deps
-  target_link_libraries(test_parsers PRIVATE cjson)
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(test_parsers PRIVATE m)
+  target_link_test_deps(test_parsers)
+
+  # ------------------------------
+  # test_xbox_session
+  # ------------------------------
+  add_executable(
+    test_xbox_session
+    test/test_xbox_session.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/xbox/xbox_session.c
+    src/common/achievement.c
+    src/common/achievement_progress.c
+    src/common/game.c
+    src/common/gamerscore.c
+    src/common/token.c
+    src/common/unlocked_achievement.c
+    src/common/xbox_session.c
+    test/stubs/bmem_stub.c
+    test/stubs/xbox/xbox_client_stub.c
+    test/stubs/time/time_stub.c
+  )
+
+  add_test(NAME test_xbox_session COMMAND test_xbox_session)
+
+  if(ENABLE_COVERAGE)
+    enable_coverage(test_xbox_session)
   endif()
 
-  # Use the same OpenSSL linkage policy as the plugin target (universal-safe on macOS).
-  if(TARGET OpenSSL::Crypto)
-    target_link_libraries(test_parsers PRIVATE OpenSSL::Crypto)
-    if(TARGET OpenSSL::SSL)
-      target_link_libraries(test_parsers PRIVATE OpenSSL::SSL)
-    endif()
+  target_include_directories(
+    test_xbox_session
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
 
-    # Ensure headers are available even if the imported targets don't propagate include dirs.
-    if(OPENSSL_INCLUDE_DIR)
-      target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
-    endif()
-  else()
-    target_include_directories(test_parsers PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(test_parsers PRIVATE ${OPENSSL_CRYPTO_LIBRARY})
-    if(OPENSSL_SSL_LIBRARY)
-      target_link_libraries(test_parsers PRIVATE ${OPENSSL_SSL_LIBRARY})
-    endif()
+  target_compile_definitions(test_xbox_session PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  target_link_test_deps(test_xbox_session)
+
+  # ------------------------------
+  # test_types
+  # ------------------------------
+  add_executable(
+    test_types
+    test/test_types.c
+    ${unity_SOURCE_DIR}/src/unity.c
+    src/xbox/xbox_session.c
+    src/common/achievement.c
+    src/common/achievement_progress.c
+    src/common/game.c
+    src/common/gamerscore.c
+    src/common/token.c
+    src/common/unlocked_achievement.c
+    src/common/xbox_session.c
+    test/stubs/bmem_stub.c
+    test/stubs/xbox/xbox_client_stub.c
+    test/stubs/time/time_stub.c
+  )
+
+  add_test(NAME test_types COMMAND test_types)
+
+  if(ENABLE_COVERAGE)
+    enable_coverage(test_types)
   endif()
+
+  target_include_directories(
+    test_types
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/test/stubs
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${unity_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/test
+  )
+
+  target_compile_definitions(test_types PRIVATE UNITY_INCLUDE_CONFIG_H)
+
+  target_link_test_deps(test_types)
 
   # ------------------------------
   # Coverage target (must be after all test targets are defined)
   # ------------------------------
   if(ENABLE_COVERAGE)
-    add_coverage_target(test_encoder test_crypto test_time test_parsers)
+    add_coverage_target(test_encoder test_crypto test_time test_parsers test_xbox_session test_types)
   endif()
 endif()

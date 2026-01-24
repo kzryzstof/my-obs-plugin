@@ -29,19 +29,6 @@
 #define CLIENT_ID "000000004c12ae6f"
 #define SCOPE "service::user.auth.xboxlive.com::MBI_SSL"
 
-#if defined(_WIN32)
-#include <windows.h>
-static void sleep_ms(unsigned int ms) {
-    Sleep(ms);
-}
-#else
-#include <unistd.h>
-static void sleep_ms(unsigned int ms) {
-    usleep(ms * 1000);
-}
-#endif
-
-/* */
 typedef struct authentication_ctx {
     /* Input parameters */
     const device_t              *device;
