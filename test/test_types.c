@@ -959,6 +959,114 @@ static void count_achievements__two_achievements__2_returned(void) {
     TEST_ASSERT_EQUAL_INT(total, 2);
 }
 
+//  Tests achievement_progress.c
+
+static void free_achievement_progress__achievement_progress_is_null__null_achievement_progress_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress = NULL;
+
+    //  Act.
+    free_achievement_progress(&achievement_progress);
+
+    //  Assert.
+    TEST_ASSERT_NULL(achievement_progress);
+}
+
+static void free_achievement_progress__one_achievement_progress__null_achievement_progress_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress->id                     = bstrdup("achievement-progress-id");
+    achievement_progress->service_config_id      = bstrdup("service-config-id");
+    achievement_progress->progress_state         = bstrdup("unlocked");
+    achievement_progress->next                   = NULL;
+
+    //  Act.
+    free_achievement_progress(&achievement_progress);
+
+    //  Assert.
+    TEST_ASSERT_NULL(achievement_progress);
+}
+
+static void free_achievement_progress__two_achievement_progresses__null_achievement_progress_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress2 = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress2->id                     = bstrdup("achievement-progress-id-2");
+    achievement_progress2->service_config_id      = bstrdup("service-config-id");
+    achievement_progress2->progress_state         = bstrdup("unlocked");
+    achievement_progress2->next                   = NULL;
+
+    achievement_progress_t *achievement_progress1 = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress1->id                     = bstrdup("achievement-progress-id-1");
+    achievement_progress1->service_config_id      = bstrdup("service-config-id");
+    achievement_progress1->progress_state         = bstrdup("unlocked");
+    achievement_progress1->next                   = achievement_progress2;
+
+    //  Act.
+    free_achievement_progress(&achievement_progress1);
+
+    //  Assert.
+    TEST_ASSERT_NULL(achievement_progress1);
+}
+
+static void copy_achievement_progress__achievement_progress_is_null__null_copy_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress = NULL;
+
+    //  Act.
+    const achievement_progress_t *copy = copy_achievement_progress(achievement_progress);
+
+    //  Assert.
+    TEST_ASSERT_NULL(copy);
+}
+
+static void copy_achievement_progress__one_achievement_progress__copy_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress->id                     = bstrdup("achievement-progress-id");
+    achievement_progress->service_config_id      = bstrdup("service-config-id");
+    achievement_progress->progress_state         = bstrdup("unlocked");
+    achievement_progress->next                   = NULL;
+
+    //  Act.
+    const achievement_progress_t *copy = copy_achievement_progress(achievement_progress);
+
+    //  Assert.
+    TEST_ASSERT_NOT_NULL(copy);
+    TEST_ASSERT_EQUAL_STRING(copy->id, achievement_progress->id);
+    TEST_ASSERT_EQUAL_STRING(copy->service_config_id, achievement_progress->service_config_id);
+    TEST_ASSERT_EQUAL_STRING(copy->progress_state, achievement_progress->progress_state);
+    TEST_ASSERT_NULL(copy->next);
+}
+
+static void copy_achievement_progress__two_achievement_progresses__copy_returned(void) {
+    //  Arrange.
+    achievement_progress_t *achievement_progress2 = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress2->id                     = bstrdup("achievement-progress-id-2");
+    achievement_progress2->service_config_id      = bstrdup("service-config-id");
+    achievement_progress2->progress_state         = bstrdup("unlocked");
+    achievement_progress2->next                   = NULL;
+
+    achievement_progress_t *achievement_progress1 = bzalloc(sizeof(achievement_progress_t));
+    achievement_progress1->id                     = bstrdup("achievement-progress-id-1");
+    achievement_progress1->service_config_id      = bstrdup("service-config-id");
+    achievement_progress1->progress_state         = bstrdup("unlocked");
+    achievement_progress1->next                   = achievement_progress2;
+
+    //  Act.
+    const achievement_progress_t *copy = copy_achievement_progress(achievement_progress1);
+
+    //  Assert.
+    TEST_ASSERT_NOT_NULL(copy);
+    TEST_ASSERT_EQUAL_STRING(copy->id, achievement_progress1->id);
+    TEST_ASSERT_EQUAL_STRING(copy->service_config_id, achievement_progress1->service_config_id);
+    TEST_ASSERT_EQUAL_STRING(copy->progress_state, achievement_progress1->progress_state);
+    TEST_ASSERT_NOT_NULL(copy->next);
+    TEST_ASSERT_EQUAL_STRING(copy->next->id, achievement_progress2->id);
+    TEST_ASSERT_EQUAL_STRING(copy->next->service_config_id, achievement_progress2->service_config_id);
+    TEST_ASSERT_EQUAL_STRING(copy->next->progress_state, achievement_progress2->progress_state);
+    TEST_ASSERT_NULL(copy->next->next);
+}
+
 int main(void) {
     UNITY_BEGIN();
 
@@ -989,6 +1097,7 @@ int main(void) {
 
     RUN_TEST(count_achievements__achievement_is_null__0_returned);
     RUN_TEST(count_achievements__one_achievement__1_returned);
+    RUN_TEST(count_achievements__two_achievements__2_returned);
 
     //  Tests game.c
     RUN_TEST(free_game__game_is_null__null_game_returned);
@@ -1033,6 +1142,15 @@ int main(void) {
 
     RUN_TEST(copy_unlocked_achievement__unlocked_achievement_is_null__null_copy_returned);
     RUN_TEST(copy_unlocked_achievement__unlocked_achievement_is_not_null__copy_returned);
+
+    //  Tests achievement_progress.c
+    RUN_TEST(free_achievement_progress__achievement_progress_is_null__null_achievement_progress_returned);
+    RUN_TEST(free_achievement_progress__one_achievement_progress__null_achievement_progress_returned);
+    RUN_TEST(free_achievement_progress__two_achievement_progresses__null_achievement_progress_returned);
+
+    RUN_TEST(copy_achievement_progress__achievement_progress_is_null__null_copy_returned);
+    RUN_TEST(copy_achievement_progress__one_achievement_progress__copy_returned);
+    RUN_TEST(copy_achievement_progress__two_achievement_progresses__copy_returned);
 
     return UNITY_END();
 }

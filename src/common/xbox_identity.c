@@ -27,9 +27,9 @@ void free_identity(xbox_identity_t **identity) {
 
     xbox_identity_t *current = *identity;
 
-    free_memory((void *)&current->gamertag);
-    free_memory((void *)&current->xid);
-    free_memory((void *)&current->uhs);
+    free_memory((void **)&current->gamertag);
+    free_memory((void **)&current->xid);
+    free_memory((void **)&current->uhs);
     free_token((token_t **)&current->token);
 
     bfree(current);

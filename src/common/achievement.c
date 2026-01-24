@@ -44,12 +44,13 @@ void free_media_asset(media_asset_t **media_asset) {
     while (current) {
         media_asset_t *next = current->next;
 
-        free_memory((void *)&current->url);
-        current->next = NULL;
-        free_memory((void *)media_asset);
+        free_memory((void **)&current->url);
+        free_memory((void **)&current);
 
         current = next;
     }
+
+    *media_asset = NULL;
 }
 
 reward_t *copy_reward(const reward_t *reward) {
@@ -158,14 +159,14 @@ void free_achievement(achievement_t **achievement) {
     while (current) {
         achievement_t *next = current->next;
 
-        free_memory((void *)&current->service_config_id);
-        free_memory((void *)&current->id);
-        free_memory((void *)&current->name);
-        free_memory((void *)&current->description);
-        free_memory((void *)&current->locked_description);
-        free_memory((void *)&current->progress_state);
-        free_media_asset((void *)&current->media_assets);
-        free_reward((void *)&current->rewards);
+        free_memory((void **)&current->service_config_id);
+        free_memory((void **)&current->id);
+        free_memory((void **)&current->name);
+        free_memory((void **)&current->description);
+        free_memory((void **)&current->locked_description);
+        free_memory((void **)&current->progress_state);
+        free_media_asset((media_asset_t **)&current->media_assets);
+        free_reward((reward_t **)&current->rewards);
         free_memory((void **)&current);
 
         current = next;
