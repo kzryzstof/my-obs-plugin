@@ -1,10 +1,19 @@
 #include "gamerscore.h"
 
-#include "diagnostics/log.h"
-
 #include <obs-module.h>
-#include <stdlib.h>
 
+/**
+ * @brief Creates a deep copy of a gamerscore object.
+ *
+ * Duplicates the gamerscore container and deep-copies its linked list of
+ * unlocked achievements.
+ *
+ * @param gamerscore Source gamerscore to copy (may be NULL).
+ *
+ * @return Newly allocated copy of @p gamerscore, or NULL if @p gamerscore is
+ *         NULL. The caller owns the returned object and must free it with
+ *         @ref free_gamerscore.
+ */
 gamerscore_t *copy_gamerscore(const gamerscore_t *gamerscore) {
 
     if (!gamerscore) {
@@ -19,6 +28,16 @@ gamerscore_t *copy_gamerscore(const gamerscore_t *gamerscore) {
     return copy;
 }
 
+/**
+ * @brief Frees a gamerscore object and sets the caller's pointer to NULL.
+ *
+ * Frees nested allocations (the unlocked achievements list) and then frees the
+ * gamerscore container.
+ *
+ * Safe to call with NULL or with @c *gamerscore == NULL.
+ *
+ * @param[in,out] gamerscore Address of the @c gamerscore_t pointer to free.
+ */
 void free_gamerscore(gamerscore_t **gamerscore) {
 
     if (!gamerscore || !*gamerscore) {
@@ -32,6 +51,16 @@ void free_gamerscore(gamerscore_t **gamerscore) {
     *gamerscore = NULL;
 }
 
+/**
+ * @brief Computes the total gamerscore.
+ *
+ * Returns the base gamerscore plus the sum of values from all unlocked
+ * achievements.
+ *
+ * @param gamerscore Gamerscore container (may be NULL).
+ *
+ * @return Total gamerscore. Returns 0 if @p gamerscore is NULL.
+ */
 int gamerscore_compute(const gamerscore_t *gamerscore) {
 
     if (!gamerscore) {
