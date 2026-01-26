@@ -1,5 +1,18 @@
 #include "oauth/util.h"
 
+/**
+ * @file util.c
+ * @brief Implementation of OAuth / PKCE helper utilities.
+ *
+ * This file provides:
+ *  - Generation of OAuth `state` values.
+ *  - Generation of PKCE `code_verifier` values.
+ *  - Computation of PKCE S256 `code_challenge`.
+ *
+ * All public functions write NUL-terminated ASCII strings to caller-provided
+ * output buffers.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -18,6 +31,18 @@
 #pragma comment(lib, "bcrypt.lib")
 #endif
 
+/**
+ * @brief Base64url-encode a byte buffer (RFC 4648 URL-safe alphabet, no padding).
+ *
+ * This helper produces base64url output by encoding using the standard base64
+ * alphabet and then mapping '+' -> '-' and '/' -> '_'. It intentionally does not
+ * output '=' padding.
+ *
+ * @param bytes     Input bytes.
+ * @param bytes_len Number of bytes in @p bytes.
+ * @param out       Output buffer.
+ * @param out_size  Size of @p out in bytes. Always NUL-terminates if possible.
+ */
 static void base64url_encode_bytes(const uint8_t *bytes, size_t bytes_len, char *out, size_t out_size) {
     static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     char              tmp[256];
@@ -56,6 +81,19 @@ static void base64url_encode_bytes(const uint8_t *bytes, size_t bytes_len, char 
     out[k] = '\0';
 }
 
+/**
+ * @brief Generate an OAuth `state` value.
+ *
+ * The state is used to correlate requests and protect against CSRF. The output
+ * is an ASCII string containing characters from [a-zA-Z0-9].
+ *
+ * @note Current implementation uses rand()/srand() seeded with time and pid.
+ *       This is adequate for low-stakes correlation but is not
+ *       cryptographically-strong randomness.
+ *
+ * @param out      Output buffer.
+ * @param out_size Output buffer size in bytes. Typical size: 33 (32 chars + NUL).
+ */
 void oauth_random_state(char *out, size_t out_size) {
     static const char alphabet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     if (!out || out_size == 0)
@@ -75,6 +113,18 @@ void oauth_random_state(char *out, size_t out_size) {
     out[n] = '\0';
 }
 
+/**
+ * @brief Generate a PKCE `code_verifier` value.
+ *
+ * Produces an ASCII string containing characters allowed by the PKCE spec
+ * (letters, digits, and "-._~").
+ *
+ * @note This reuses the PRNG state from oauth_random_state() and therefore shares
+ *       the same randomness caveat.
+ *
+ * @param out      Output buffer.
+ * @param out_size Output buffer size in bytes. Typical size: 65 (64 chars + NUL).
+ */
 void oauth_pkce_verifier(char *out, size_t out_size) {
     static const char alphabet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
     if (!out || out_size == 0)
@@ -89,6 +139,17 @@ void oauth_pkce_verifier(char *out, size_t out_size) {
     out[n] = '\0';
 }
 
+/**
+ * @brief Compute the PKCE S256 code challenge for a given verifier.
+ *
+ * Computes:
+ *  - SHA-256(verifier)
+ *  - base64url encoding of the digest without '=' padding
+ *
+ * @param verifier PKCE verifier string.
+ * @param out      Output buffer.
+ * @param out_size Output buffer size in bytes.
+ */
 void oauth_pkce_challenge_s256(const char *verifier, char *out, size_t out_size) {
     if (!verifier || !out || out_size == 0) {
         if (out && out_size)
