@@ -185,8 +185,8 @@ static void on_source_video_render(void *data, gs_effect_t *effect) {
 static obs_properties_t *source_get_properties(void *data) {
     UNUSED_PARAMETER(data);
 
-    /* Finds out if there is a token available already */
-    const xbox_identity_t *xbox_identity = state_get_xbox_identity();
+    /* Gets or refreshes the token */
+    const xbox_identity_t *xbox_identity = xbox_live_get_identity();
 
     /* Lists all the UI components of the properties page */
     obs_properties_t *p = obs_properties_create();
@@ -267,7 +267,7 @@ void xbox_account_source_register(void) {
     xbox_subscribe_game_played(&on_xbox_game_played);
 
     /* Starts the monitoring if the user is already logged in */
-    xbox_identity_t *identity = state_get_xbox_identity();
+    xbox_identity_t *identity = xbox_live_get_identity();
 
     if (identity) {
         xbox_monitoring_start();

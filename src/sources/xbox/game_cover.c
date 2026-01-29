@@ -292,8 +292,8 @@ static obs_properties_t *source_get_properties(void *data) {
 
     UNUSED_PARAMETER(data);
 
-    /* Finds out if there is a token available already */
-    const xbox_identity_t *xbox_identity = state_get_xbox_identity();
+    /* Gets or refreshes the token */
+    const xbox_identity_t *xbox_identity = xbox_live_get_identity();
 
     /* Lists all the UI components of the properties page */
     obs_properties_t *p = obs_properties_create();

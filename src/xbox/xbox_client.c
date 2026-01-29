@@ -27,6 +27,7 @@
 #include "io/state.h"
 #include "net/http/http.h"
 #include "net/json/json.h"
+#include "oauth/xbox-live.h"
 #include "text/parsers.h"
 
 #include <cJSON.h>
@@ -69,7 +70,7 @@ char *xbox_get_game_cover(const game_t *game) {
     /*
      * Retrieves the user's xbox identity
      */
-    xbox_identity_t *identity = state_get_xbox_identity();
+    xbox_identity_t *identity = xbox_live_get_identity();
 
     if (!identity) {
         return display_image_url;
