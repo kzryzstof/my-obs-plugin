@@ -104,9 +104,7 @@ static bool on_sign_in_xbox_clicked(obs_properties_t *props, obs_property_t *pro
     UNUSED_PARAMETER(property);
     UNUSED_PARAMETER(data);
 
-    device_t *device = state_get_device();
-
-    if (!xbox_live_authenticate(device, data, &on_xbox_signed_in)) {
+    if (!xbox_live_authenticate(data, &on_xbox_signed_in)) {
         obs_log(LOG_WARNING, "Xbox sign-in failed");
         return false;
     }

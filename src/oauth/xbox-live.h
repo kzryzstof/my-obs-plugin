@@ -37,15 +37,13 @@ typedef void (*on_xbox_live_authenticated_t)(void *data);
  * @note The function is non-blocking from the perspective of the caller; it
  *       returns whether the flow could be started.
  *
- * @param device   Device identity used for authentication (must remain valid for
- *                 the duration of the flow).
  * @param data     Opaque pointer passed back to @p callback.
  * @param callback Function invoked on completion (must be non-NULL).
  *
  * @return true if the authentication flow was started successfully;
  *         false otherwise.
  */
-bool xbox_live_authenticate(const device_t *device, void *data, on_xbox_live_authenticated_t callback);
+bool xbox_live_authenticate(void *data, on_xbox_live_authenticated_t callback);
 
 /**
  * @brief Get the currently persisted Xbox identity (if any).

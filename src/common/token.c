@@ -72,14 +72,21 @@ bool token_is_expired(const token_t *token) {
         return true;
     }
 
+    /*
+     * Safety margin: treat tokens as expired slightly before their reported
+     * expiration time to avoid races/clock skew.
+     */
+    const int64_t expires_with_margin = token->expires - 15 * 60;
+
     time_t current_time = now();
-    bool   is_expired   = current_time >= token->expires;
+    bool   will_expire  = (int64_t)current_time >= expires_with_margin;
 
     obs_log(LOG_INFO,
-            "Now: %lld. Token expires=%lld. Status? %s",
+            "Now is %lld. Token expires at %lld (effective at %lld). Status: %s",
             (long long)current_time,
             (long long)token->expires,
-            is_expired ? "expired" : "valid");
+            (long long)expires_with_margin,
+            will_expire ? "token is expired" : "token is valid");
 
-    return is_expired;
+    return will_expire;
 }

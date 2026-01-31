@@ -54,7 +54,6 @@
 #define SUBSCRIBE 1
 #define UNSUBSCRIBE 1
 
-/* Manages all the subscriptions to the `game_played` event */
 /**
  * @brief Subscription node for game-played events.
  */
@@ -65,7 +64,6 @@ typedef struct game_played_subscription {
 
 static game_played_subscription_t *g_game_played_subscriptions = NULL;
 
-/* Manages all the subscriptions to the `achievements_updated` event */
 /**
  * @brief Subscription node for achievement progress events.
  */
@@ -76,7 +74,6 @@ typedef struct achievements_updated_subscription {
 
 static achievements_updated_subscription_t *g_achievements_updated_subscriptions = NULL;
 
-/* Manages all the subscriptions to the `connection_changed` event */
 /**
  * @brief Subscription node for connection status change events.
  */
@@ -87,9 +84,17 @@ typedef struct connection_changed_subscription {
 
 static connection_changed_subscription_t *g_connection_changed_subscriptions = NULL;
 
-/* Keep track of the monitoring */
 /**
- * @brief Runtime state of the monitor thread and websocket connection.
+ * @brief Monitor thread state.
+ *
+ * This struct is allocated when monitoring starts and owned by the module-level
+ * @c g_monitoring_context pointer.
+ *
+ * Ownership/lifetime:
+ * - @c identity is an xbox_identity_t instance returned by state/xbox_live helpers.
+ *   It is owned by the state subsystem; do not free it here.
+ * - @c auth_token is a heap-allocated "XBL3.0 x=<uhs>;<token>" header value.
+ *   It is owned by this context and must be freed when replaced or on stop.
  */
 typedef struct monitoring_context {
     /** libwebsockets context (event loop) */
@@ -107,7 +112,18 @@ typedef struct monitoring_context {
     /** True once websocket has reached the "established" state */
     bool connected;
 
-    /** Authorization token used during the handshake ("XBL3.0 x=uhs;token") */
+    /**
+     * Current identity used.
+     *
+     * Used to determine whether the token is expired and to refresh it when needed.
+     */
+    xbox_identity_t *identity;
+
+    /**
+     * Authorization token used during the handshake ("XBL3.0 x=uhs;token").
+     *
+     * Note: this is the full header value (without the "Authorization:" prefix).
+     */
     char *auth_token;
 
     /** Receive buffer used to accumulate websocket fragments */
@@ -120,6 +136,30 @@ static monitoring_context_t *g_monitoring_context = NULL;
 
 /* Keeps track of the game, achievements and gamerscore */
 static xbox_session_t g_current_session;
+
+/**
+ * @brief Build the WebSocket "Authorization" header value for a given Xbox identity.
+ *
+ * The returned string is of the form:
+ * `XBL3.0 x=<uhs>;<token>`
+ *
+ * Ownership:
+ * - The returned string is heap-allocated and must be freed by the caller (bfree).
+ *
+ * @param identity Identity containing @c uhs and a valid token.
+ * @return Newly allocated header value, or NULL on error.
+ */
+static char *build_authorization_header(const xbox_identity_t *identity) {
+
+    if (!identity) {
+        return NULL;
+    }
+
+    char auth_header[4096];
+    snprintf(auth_header, sizeof(auth_header), "XBL3.0 x=%s;%s", identity->uhs, identity->token->value);
+
+    return bstrdup(auth_header);
+}
 
 /**
  * @brief Invoke all registered game-played subscribers.
@@ -159,19 +199,19 @@ static void notify_achievements_progressed(const achievement_progress_t *achieve
 /**
  * @brief Invoke all registered connection state subscribers.
  */
-static void notify_connection_changed(bool connected, const char *error_message) {
+static void notify_connection_changed(bool is_connected, const char *error_message) {
 
     UNUSED_PARAMETER(error_message);
 
     obs_log(LOG_INFO,
             "Notifying of a connection changed: %s (%s)",
-            connected ? "Connected" : "Not connected",
+            is_connected ? "Connected" : "Not connected",
             error_message);
 
     connection_changed_subscription_t *node = g_connection_changed_subscriptions;
 
     while (node) {
-        node->callback(connected, error_message);
+        node->callback(is_connected, error_message);
         node = node->next;
     }
 }
@@ -579,8 +619,37 @@ static int websocket_callback(struct lws *wsi, enum lws_callback_reasons reason,
         break;
 
     case LWS_CALLBACK_CLIENT_RECEIVE_PONG:
-        obs_log(LOG_ERROR, "Monitoring | Received pong");
-        /* Test token! */
+        /*
+         * Periodic pong received.
+         *
+         * We use this as a lightweight place to refresh credentials if needed.
+         * Note: libwebsockets does not automatically update handshake headers
+         * for an already-established connection. Refreshing @c ctx->auth_token
+         * here prepares the next connection attempt (reconnect) to use fresh
+         * credentials.
+         */
+        obs_log(LOG_DEBUG, "Monitoring | Checking token");
+
+        if (g_monitoring_context->identity && !token_is_expired(g_monitoring_context->identity->token)) {
+            break;
+        }
+
+        obs_log(LOG_INFO, "Monitoring | Refreshing token");
+
+        free_memory((void **)&g_monitoring_context->auth_token);
+        free_memory((void **)&g_monitoring_context->identity);
+
+        g_monitoring_context->identity = xbox_live_get_identity();
+
+        if (!g_monitoring_context->identity) {
+            obs_log(LOG_ERROR, "Monitoring | Failed to refresh the token");
+            break;
+        }
+
+        /* Replace the cached auth header for future handshakes */
+        g_monitoring_context->auth_token = build_authorization_header(g_monitoring_context->identity);
+
+        obs_log(LOG_INFO, "Monitoring | Token refreshed");
 
         break;
     case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
@@ -706,7 +775,7 @@ bool xbox_monitoring_start() {
     }
 
     /* Get the authorization token from state */
-    const xbox_identity_t *identity = xbox_live_get_identity();
+    xbox_identity_t *identity = xbox_live_get_identity();
 
     if (!identity) {
         obs_log(LOG_ERROR, "Monitoring | No identity available");
@@ -720,12 +789,12 @@ bool xbox_monitoring_start() {
         return false;
     }
 
-    char auth_header[4096];
-    snprintf(auth_header, sizeof(auth_header), "XBL3.0 x=%s;%s", identity->uhs, identity->token->value);
+    char *authorization_header = build_authorization_header(identity);
 
+    g_monitoring_context->identity   = identity;
     g_monitoring_context->running    = true;
     g_monitoring_context->connected  = false;
-    g_monitoring_context->auth_token = bstrdup(auth_header);
+    g_monitoring_context->auth_token = authorization_header;
 
     /* Allocate initial receive buffer */
     g_monitoring_context->rx_buffer_size = 4096;
